@@ -1,6 +1,10 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 export function generateOrderNumber(): string {
   const date = new Date();
   const y = date.getFullYear().toString().slice(-2);
@@ -9,9 +13,30 @@ export function generateOrderNumber(): string {
   const r = Math.floor(Math.random() * 9000) + 1000;
   return `SEN-${y}${m}${d}-${r}`;
 }
+
 export function slugify(text: string): string {
-  return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-");
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
 }
+
 export function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+/** Formate un montant en FCFA, ex. `25 000 FCFA`. */
+export function formatFcfa(amount: number): string {
+  return `${new Intl.NumberFormat("fr-FR").format(amount)} FCFA`;
+}
+
+/** Message lisible pour n'importe quelle valeur attrapée dans un `catch`. */
+export function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return "Une erreur inattendue est survenue.";
 }

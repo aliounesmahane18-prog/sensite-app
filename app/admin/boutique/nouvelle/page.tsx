@@ -2,63 +2,288 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getAccessToken } from "@/lib/supabase";
+import { catalogueUrl } from "@/lib/env";
+import { ErrorBanner } from "@/components/config-error";
+import { getErrorMessage, slugify } from "@/lib/utils";
+
+const CATEGORIES: [string, string][] = [
+  ["pret_a_porter", "Prêt-à-porter"],
+  ["electromenager", "Électroménager"],
+  ["bazar", "Bazar"],
+  ["quincaillerie", "Quincaillerie"],
+  ["bijouterie", "Bijouterie"],
+  ["autre", "Autre"],
+];
+
+interface CreatedBoutique {
+  slug: string;
+  name: string;
+  email: string;
+  password: string;
+}
 
 export default function NouvelleBoutiquePage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: "", category: "bazar", whatsapp_number: "", quartier: "", monthly_price: "5000", manager_email: "", manager_name: "" });
-
-  const slugify = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
+  const [error, setError] = useState("");
+  const [created, setCreated] = useState<CreatedBoutique | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    category: "bazar",
+    whatsapp_number: "",
+    quartier: "",
+    monthly_price: "5000",
+    manager_email: "",
+    manager_name: "",
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.whatsapp_number || !form.manager_email) { alert("Remplis tous les champs obligatoires"); return; }
+    setError("");
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/create-user", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.manager_email, password: `SEN${Math.random().toString(36).slice(-6).toUpperCase()}!` }) });
+      const token = await getAccessToken();
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+
+      const res = await fetch("/api/admin/boutiques", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: form.name,
+          category: form.category,
+          whatsapp_number: form.whatsapp_number,
+          quartier: form.quartier,
+          monthly_price: Number(form.monthly_price),
+          manager_email: form.manager_email,
+          manager_name: form.manager_name,
+        }),
+      });
+
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-      const { data: b } = await supabase.from("boutiques").insert({ name: form.name, slug: slugify(form.name) || `boutique-${Date.now()}`, category: form.category, whatsapp_number: form.whatsapp_number, quartier: form.quartier || null, monthly_price: parseInt(form.monthly_price), subscription_status: "pending" }).select().single();
-      await supabase.from("profiles").insert({ id: json.userId, email: form.manager_email, full_name: form.manager_name || null, role: "manager", boutique_id: b.id });
-      alert(`✅ Boutique créée !\nURL: ${process.env.NEXT_PUBLIC_APP_URL}/boutique/${b.slug}\nEmail: ${form.manager_email}`);
-      router.push("/admin");
-    } catch (err: unknown) { alert((err as Error).message); }
-    finally { setSaving(false); }
+      if (!res.ok) throw new Error(json.error ?? "Création impossible.");
+
+      setCreated({
+        slug: json.boutique.slug,
+        name: json.boutique.name,
+        email: json.manager.email,
+        password: json.manager.password,
+      });
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   };
+
+  // Le mot de passe n'est affiché qu'une seule fois : il n'est stocké nulle
+  // part en clair, donc cet écran doit rester visible tant qu'Ali ne l'a pas
+  // transmis au gérant.
+  if (created) {
+    const credentials =
+      `Bienvenue sur SENsite-APP 🎉\n\nBoutique : ${created.name}\n` +
+      `Catalogue : ${catalogueUrl(created.slug)}\n\n` +
+      `Connexion gérant : ${window.location.origin}/login\n` +
+      `Email : ${created.email}\nMot de passe : ${created.password}\n\n` +
+      `Pense à changer ton mot de passe.`;
+
+    return (
+      <div className="min-h-screen bg-gray-50 py-6">
+        <div className="max-w-xl mx-auto px-4 space-y-5">
+          <h1 className="section-title">✅ Boutique créée</h1>
+
+          <div className="card p-5 space-y-4">
+            <div>
+              <p className="label">Catalogue public</p>
+              <p className="font-mono text-sm text-orange-500 break-all">{catalogueUrl(created.slug)}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Le catalogue reste invisible tant que l&apos;abonnement n&apos;est pas activé depuis
+                la liste des boutiques.
+              </p>
+            </div>
+
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-semibold text-orange-800">
+                🔐 Identifiants du gérant — affichés une seule fois
+              </p>
+              <p className="text-sm">
+                Email : <span className="font-mono">{created.email}</span>
+              </p>
+              <p className="text-sm">
+                Mot de passe : <span className="font-mono font-bold">{created.password}</span>
+              </p>
+            </div>
+
+            <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={() => navigator.clipboard.writeText(credentials)}
+                className="btn-secondary text-sm"
+              >
+                📋 Copier le message
+              </button>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(credentials)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-whatsapp text-sm"
+              >
+                💬 Envoyer sur WhatsApp
+              </a>
+            </div>
+          </div>
+
+          <Link href="/admin" className="btn-primary inline-block">
+            Retour à la liste
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const slugPreview = slugify(form.name);
 
   return (
     <div className="min-h-screen bg-gray-50 py-6">
       <div className="max-w-xl mx-auto px-4 space-y-5">
         <div className="flex items-center gap-3">
-          <Link href="/admin" className="text-gray-400 hover:text-gray-700">←</Link>
+          <Link href="/admin" className="text-gray-400 hover:text-gray-700">
+            ←
+          </Link>
           <h1 className="section-title">Nouvelle boutique</h1>
         </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && <ErrorBanner message={error} />}
+
           <div className="card p-5 space-y-4">
             <h2 className="font-bold text-gray-900">🏪 Infos boutique</h2>
-            <div><label className="label">Nom *</label><input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="input-field" placeholder="Mode Dakar" required /></div>
-            {form.name && <p className="text-xs text-gray-400">URL : <span className="text-orange-500 font-mono">/boutique/{slugify(form.name)}</span></p>}
-            <div><label className="label">Catégorie</label>
-              <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="input-field">
-                {[["pret_a_porter","Prêt-à-porter"],["electromenager","Électroménager"],["bazar","Bazar"],["quincaillerie","Quincaillerie"],["bijouterie","Bijouterie"],["autre","Autre"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+            <div>
+              <label className="label" htmlFor="boutique-name">
+                Nom *
+              </label>
+              <input
+                id="boutique-name"
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="input-field"
+                placeholder="Mode Dakar"
+                required
+              />
+            </div>
+            {slugPreview && (
+              <p className="text-xs text-gray-400">
+                URL : <span className="text-orange-500 font-mono">/boutique/{slugPreview}</span>
+              </p>
+            )}
+            <div>
+              <label className="label" htmlFor="boutique-category">
+                Catégorie
+              </label>
+              <select
+                id="boutique-category"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                className="input-field"
+              >
+                {CATEGORIES.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="label">WhatsApp *</label><input type="tel" value={form.whatsapp_number} onChange={e => setForm({...form, whatsapp_number: e.target.value})} className="input-field" placeholder="+221 77..." required /></div>
-              <div><label className="label">Quartier</label><input type="text" value={form.quartier} onChange={e => setForm({...form, quartier: e.target.value})} className="input-field" placeholder="Médina..." /></div>
+              <div>
+                <label className="label" htmlFor="boutique-whatsapp">
+                  WhatsApp *
+                </label>
+                <input
+                  id="boutique-whatsapp"
+                  type="tel"
+                  value={form.whatsapp_number}
+                  onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })}
+                  className="input-field"
+                  placeholder="+221 77..."
+                  required
+                />
+              </div>
+              <div>
+                <label className="label" htmlFor="boutique-quartier">
+                  Quartier
+                </label>
+                <input
+                  id="boutique-quartier"
+                  type="text"
+                  value={form.quartier}
+                  onChange={(e) => setForm({ ...form, quartier: e.target.value })}
+                  className="input-field"
+                  placeholder="Médina..."
+                />
+              </div>
             </div>
-            <div><label className="label">Prix mensuel (FCFA)</label><input type="number" value={form.monthly_price} onChange={e => setForm({...form, monthly_price: e.target.value})} className="input-field" /></div>
+            <div>
+              <label className="label" htmlFor="boutique-price">
+                Prix mensuel (FCFA)
+              </label>
+              <input
+                id="boutique-price"
+                type="number"
+                min={0}
+                value={form.monthly_price}
+                onChange={(e) => setForm({ ...form, monthly_price: e.target.value })}
+                className="input-field"
+              />
+            </div>
           </div>
+
           <div className="card p-5 space-y-4">
             <h2 className="font-bold text-gray-900">👤 Compte gérant</h2>
-            <div><label className="label">Email *</label><input type="email" value={form.manager_email} onChange={e => setForm({...form, manager_email: e.target.value})} className="input-field" placeholder="gerant@boutique.com" required /></div>
-            <div><label className="label">Nom</label><input type="text" value={form.manager_name} onChange={e => setForm({...form, manager_name: e.target.value})} className="input-field" placeholder="Moussa Diallo" /></div>
+            <div>
+              <label className="label" htmlFor="manager-email">
+                Email *
+              </label>
+              <input
+                id="manager-email"
+                type="email"
+                value={form.manager_email}
+                onChange={(e) => setForm({ ...form, manager_email: e.target.value })}
+                className="input-field"
+                placeholder="gerant@boutique.com"
+                required
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="manager-name">
+                Nom
+              </label>
+              <input
+                id="manager-name"
+                type="text"
+                value={form.manager_name}
+                onChange={(e) => setForm({ ...form, manager_name: e.target.value })}
+                className="input-field"
+                placeholder="Moussa Diallo"
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+              Le mot de passe est généré automatiquement et affiché après la création.
+            </p>
           </div>
+
           <div className="flex gap-3">
-            <Link href="/admin" className="btn-secondary flex-1 text-center">Annuler</Link>
-            <button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? "Création..." : "Créer la boutique"}</button>
+            <Link href="/admin" className="btn-secondary flex-1 text-center">
+              Annuler
+            </Link>
+            <button type="submit" disabled={saving} className="btn-primary flex-1">
+              {saving ? "Création..." : "Créer la boutique"}
+            </button>
           </div>
         </form>
       </div>
