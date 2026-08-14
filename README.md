@@ -48,11 +48,14 @@ npm install
 1. Créer un projet sur [supabase.com](https://supabase.com)
 2. Aller dans **SQL Editor** et exécuter `supabase-schema.sql`
 3. Créer les buckets Storage : `product-images`, `boutique-logos`, `boutique-banners` (tous publics)
-4. Copier l'URL et les clés API : **Settings → API**
+4. Exécuter la section **STORAGE : politiques RLS** de `supabase-schema.sql`
+   (sans elle, l'envoi de photos depuis le dashboard échoue : un bucket public
+   n'autorise que la *lecture*)
+5. Copier l'URL et les clés API : **Settings → API**
 
 ### 3. Variables d'environnement
 ```bash
-cp .env.local.example .env.local
+cp .env.example .env.local
 # Remplir avec tes clés Supabase
 ```
 
@@ -85,10 +88,35 @@ vercel --prod
 ```
 
 Ajouter dans Vercel Dashboard → **Environment Variables** :
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `NEXT_PUBLIC_APP_URL` = `https://ton-app.vercel.app`
+
+| Variable | Sensitive ? | Rôle |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | ❌ **non** | URL du projet, lue par le navigateur |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ❌ **non** | Clé publique, protégée par RLS |
+| `NEXT_PUBLIC_APP_URL` | ❌ non | `https://ton-app.vercel.app` |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ oui | Clé secrète, serveur uniquement |
+
+> ⚠️ **Ne coche pas « Sensitive » sur les variables `NEXT_PUBLIC_*`.**
+> Une variable *Sensitive* n'est pas lisible pendant le build : Next.js ne peut
+> donc pas l'injecter dans le bundle navigateur, et le client Supabase se
+> retrouve sans clé (`supabaseKey is required`, page blanche).
+>
+> L'app se défend désormais contre ce cas : la config publique est aussi
+> injectée à chaque requête par le serveur (`components/public-env-script.tsx`),
+> et une page d'erreur explicite remplace la page blanche. Mais la bonne
+> configuration reste de laisser ces variables non-Sensitive.
+
+---
+
+## 🩺 Page blanche sur `/login` ?
+
+Ouvre la console du navigateur :
+
+| Symptôme | Cause | Correctif |
+|---|---|---|
+| `supabaseKey is required` | Variables `NEXT_PUBLIC_*` absentes du bundle | Décocher « Sensitive » dans Vercel, puis **Redeploy** |
+| Écran « Configuration incomplète » | Idem, détecté proprement par l'app | Idem |
+| `new row violates row-level security policy` à l'envoi d'une photo | Politiques Storage manquantes | Exécuter la section STORAGE de `supabase-schema.sql` |
 
 ---
 
@@ -99,13 +127,23 @@ Ajouter dans Vercel Dashboard → **Environment Variables** :
 | `/` | Page d'accueil publique |
 | `/login` | Connexion |
 | `/admin` | Dashboard Super Admin |
-| `/admin/boutique/nouvelle` | Créer une boutique |
-| `/admin/boutique/[id]` | Gérer une boutique |
+| `/admin/boutique/nouvelle` | Créer une boutique (compte gérant inclus) |
 | `/dashboard` | Dashboard gérant/employé |
 | `/dashboard/produits` | Gestion produits |
 | `/dashboard/produits/nouveau` | Ajouter un produit |
+| `/dashboard/produits/[id]/modifier` | Modifier un produit |
 | `/dashboard/commandes` | Voir les commandes |
 | `/boutique/[slug]` | **Page catalogue publique** (pour les clients) |
+
+### Routes API
+
+| Route | Accès | Rôle |
+|---|---|---|
+| `POST /api/admin/boutiques` | Super admin (`Authorization: Bearer <token>`) | Crée compte gérant + boutique + profil, renvoie le mot de passe généré |
+| `POST /api/orders` | Public | Enregistre une commande ; recalcule les prix depuis la base |
+
+Les deux utilisent la clé service role **côté serveur uniquement**
+(`lib/supabase-admin.ts`), jamais depuis le navigateur.
 
 ---
 
@@ -143,11 +181,14 @@ Ajouter dans Vercel Dashboard → **Environment Variables** :
 
 ### Tests finaux
 - [ ] ✅ Connexion super admin → `/admin`
-- [ ] ✅ Créer une boutique test
+- [ ] ✅ Créer une boutique test → noter le mot de passe affiché **une seule fois**
+- [ ] ✅ Activer l'abonnement de la boutique (sinon le catalogue reste invisible)
 - [ ] ✅ Connexion gérant → `/dashboard`
 - [ ] ✅ Ajouter un produit avec photo
+- [ ] ✅ Modifier puis masquer ce produit
 - [ ] ✅ Ouvrir `/boutique/[slug]` → voir le catalogue
 - [ ] ✅ Ajouter au panier → commander → WhatsApp s'ouvre
+- [ ] ✅ La commande apparaît dans `/dashboard/commandes`
 - [ ] ✅ Tester sur mobile Chrome
 
 ---

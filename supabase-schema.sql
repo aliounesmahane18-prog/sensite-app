@@ -188,3 +188,60 @@ CREATE TRIGGER tr_orders_updated BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FU
 -- Bucket "boutique-logos" (public)
 -- Bucket "product-images" (public)
 -- Bucket "boutique-banners" (public)
+
+-- ============================================
+-- STORAGE : politiques RLS
+-- ============================================
+-- Indispensable : RLS est active sur storage.objects. Sans ces politiques,
+-- AUCUN envoi de photo depuis le dashboard ne fonctionne (les buckets publics
+-- n'autorisent que la LECTURE).
+--
+-- Un gérant n'écrit que dans le dossier portant l'id de sa boutique
+-- (chemin : "<boutique_id>/<fichier>"), le super admin gère tous les buckets.
+
+CREATE POLICY "product_images_insert_own_boutique"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'product-images'
+    AND (storage.foldername(name))[1] = (
+      SELECT boutique_id::text FROM public.profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "product_images_update_own_boutique"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'product-images'
+    AND (storage.foldername(name))[1] = (
+      SELECT boutique_id::text FROM public.profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "product_images_delete_own_boutique"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'product-images'
+    AND (storage.foldername(name))[1] = (
+      SELECT boutique_id::text FROM public.profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "product_images_superadmin_all"
+  ON storage.objects FOR ALL TO authenticated
+  USING (
+    bucket_id IN ('product-images', 'boutique-logos', 'boutique-banners')
+    AND (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'super_admin'
+  )
+  WITH CHECK (
+    bucket_id IN ('product-images', 'boutique-logos', 'boutique-banners')
+    AND (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'super_admin'
+  );
+
+-- ============================================
+-- NOTE : commandes (table `orders`)
+-- ============================================
+-- Les clients d'un catalogue ne sont pas authentifiés. Plutôt que d'ouvrir une
+-- politique d'insertion au rôle `anon`, les commandes sont enregistrées par la
+-- route serveur `POST /api/orders`, qui utilise la clé service role et
+-- recalcule les prix depuis la base. Aucune politique `anon` n'est donc
+-- nécessaire ici — et c'est volontaire.
