@@ -17,7 +17,7 @@ export default function HomePage() {
           Les clients commandent, toi tu reçois directement sur WhatsApp.
         </p>
         <div className="flex gap-4 justify-center flex-wrap">
-          <a href="https://wa.me/00221767263361" target="_blank"
+          <a href="https://wa.me/221767263361" target="_blank"
             className="btn-whatsapp text-base px-8 py-4">
             📲 Commander ma boutique
           </a>

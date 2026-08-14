@@ -175,7 +175,7 @@ export default function LoginPage() {
         </div>
         <p className="text-center text-sm text-gray-500 mt-4">
           Pas de boutique ?{" "}
-          <a href="https://wa.me/00221767263361" className="text-orange-500 font-semibold">
+          <a href="https://wa.me/221767263361" className="text-orange-500 font-semibold">
             Contacte Ali.IA
           </a>
         </p>
