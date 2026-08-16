@@ -66,7 +66,7 @@ export default function LoginPage() {
     setError("");
     try {
       const supabase = getSupabase();
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error: signInError } = await getSupabase().auth.signInWithPassword({ email, password });
       if (signInError) {
         setError(
           signInError.message === "Invalid login credentials"
@@ -88,7 +88,7 @@ export default function LoginPage() {
 
       if (!profile) {
         setError("Ton compte n'est rattaché à aucune boutique. Contacte Ali.IA Solutions.");
-        await supabase.auth.signOut();
+        await getSupabase().auth.signOut();
         return;
       }
 

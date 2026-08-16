@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import ProductForm from "@/components/product-form";
 
 export default function ModifierProduitPage() {
@@ -17,12 +17,12 @@ export default function ModifierProduitPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSupabase().auth.getUser();
       if (!user) { router.push("/login"); return; }
       setUserId(user.id);
-      const { data: profile } = await supabase.from("profiles").select("boutique_id").eq("id", user.id).single();
+      const { data: profile } = await getSupabase().from("profiles").select("boutique_id").eq("id", user.id).single();
       setBoutiqueId(profile?.boutique_id || null);
-      const { data: p } = await supabase.from("products").select("*").eq("id", productId).single();
+      const { data: p } = await getSupabase().from("products").select("*").eq("id", productId).single();
       setProduct(p);
       setLoading(false);
     };

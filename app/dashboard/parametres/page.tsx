@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Camera, Save, X } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export default function ParametresPage() {
   const router = useRouter();
@@ -25,12 +25,12 @@ export default function ParametresPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSupabase().auth.getUser();
       if (!user) { router.push("/login"); return; }
-      const { data: profile } = await supabase.from("profiles").select("boutique_id").eq("id", user.id).single();
+      const { data: profile } = await getSupabase().from("profiles").select("boutique_id").eq("id", user.id).single();
       if (!profile?.boutique_id) { setLoading(false); return; }
       setBoutiqueId(profile.boutique_id);
-      const { data: b } = await supabase.from("boutiques").select("*").eq("id", profile.boutique_id).single();
+      const { data: b } = await getSupabase().from("boutiques").select("*").eq("id", profile.boutique_id).single();
       if (b) {
         setForm({
           name: b.name || "",
@@ -59,8 +59,8 @@ export default function ParametresPage() {
     if (!logoFile || !boutiqueId) return logoPreview;
     const ext = logoFile.name.split(".").pop();
     const path = `${boutiqueId}/logo.${ext}`;
-    await supabase.storage.from("boutique-logos").upload(path, logoFile, { upsert: true });
-    const { data } = supabase.storage.from("boutique-logos").getPublicUrl(path);
+    await getSupabase().storage.from("boutique-logos").upload(path, logoFile, { upsert: true });
+    const { data } = getSupabase().storage.from("boutique-logos").getPublicUrl(path);
     return data.publicUrl;
   };
 
@@ -70,7 +70,7 @@ export default function ParametresPage() {
     setSaving(true);
     try {
       const logoUrl = await uploadLogo();
-      const { error } = await supabase.from("boutiques").update({
+      const { error } = await getSupabase().from("boutiques").update({
         ...form,
         logo_url: logoUrl,
       }).eq("id", boutiqueId);

@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { X, Plus, Trash2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 interface Variant {
   name: string;
@@ -92,9 +92,9 @@ export default function ProductForm({ boutiqueId, userId, product, onSuccess }: 
     if (!imageFile) return preview;
     const ext = imageFile.name.split(".").pop();
     const path = `${boutiqueId}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("product-images").upload(path, imageFile);
+    const { error } = await getSupabase().storage.from("product-images").upload(path, imageFile);
     if (error) { alert("Erreur upload image"); return null; }
-    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+    const { data } = getSupabase().storage.from("product-images").getPublicUrl(path);
     return data.publicUrl;
   };
 
@@ -120,11 +120,11 @@ export default function ProductForm({ boutiqueId, userId, product, onSuccess }: 
       };
 
       if (product?.id) {
-        const { error } = await supabase.from("products").update(productData).eq("id", product.id);
+        const { error } = await getSupabase().from("products").update(productData).eq("id", product.id);
         if (error) throw error;
         alert("✅ Produit mis à jour !");
       } else {
-        const { error } = await supabase.from("products").insert(productData);
+        const { error } = await getSupabase().from("products").insert(productData);
         if (error) throw error;
         alert("✅ Produit ajouté !");
       }

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 interface Boutique {
   name: string;
@@ -22,12 +22,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const check = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSupabase().auth.getUser();
       if (!user) { router.push("/login"); return; }
-      const { data: p } = await supabase.from("profiles").select("role, boutique_id").eq("id", user.id).single();
+      const { data: p } = await getSupabase().from("profiles").select("role, boutique_id").eq("id", user.id).single();
       if (p?.role === "super_admin") { router.push("/admin"); return; }
       if (p?.boutique_id) {
-        const { data: b } = await supabase.from("boutiques").select("name, slug, subscription_status, logo_url, color_primary").eq("id", p.boutique_id).single();
+        const { data: b } = await getSupabase().from("boutiques").select("name, slug, subscription_status, logo_url, color_primary").eq("id", p.boutique_id).single();
         setBoutique(b);
       }
       setLoading(false);
@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     check();
   }, [router]);
 
-  const logout = async () => { await supabase.auth.signOut(); router.push("/login"); };
+  const logout = async () => { await getSupabase().auth.signOut(); router.push("/login"); };
 
   const navItems = [
     { href: "/dashboard", label: "🏠 Tableau de bord" },
