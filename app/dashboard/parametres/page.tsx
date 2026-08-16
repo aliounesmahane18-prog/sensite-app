@@ -2,8 +2,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Camera, Save, X } from "lucide-react";
+import { Camera, Save, X, Check } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
+import { THEME_PRESETS } from "@/lib/themes";
 
 export default function ParametresPage() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function ParametresPage() {
   const [boutiqueId, setBoutiqueId] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -21,16 +23,20 @@ export default function ParametresPage() {
     quartier: "",
     address: "",
     color_primary: "#F97316",
+    color_secondary: "#1C1917",
+    color_accent: "#EAB308",
+    theme_preset: "custom",
   });
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await getSupabase().auth.getUser();
+      const supabase = getSupabase();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
-      const { data: profile } = await getSupabase().from("profiles").select("boutique_id").eq("id", user.id).single();
+      const { data: profile } = await supabase.from("profiles").select("boutique_id").eq("id", user.id).single();
       if (!profile?.boutique_id) { setLoading(false); return; }
       setBoutiqueId(profile.boutique_id);
-      const { data: b } = await getSupabase().from("boutiques").select("*").eq("id", profile.boutique_id).single();
+      const { data: b } = await supabase.from("boutiques").select("*").eq("id", profile.boutique_id).single();
       if (b) {
         setForm({
           name: b.name || "",
@@ -39,6 +45,9 @@ export default function ParametresPage() {
           quartier: b.quartier || "",
           address: b.address || "",
           color_primary: b.color_primary || "#F97316",
+          color_secondary: b.color_secondary || "#1C1917",
+          color_accent: b.color_accent || "#EAB308",
+          theme_preset: b.theme_preset || "custom",
         });
         setLogoPreview(b.logo_url || null);
       }
@@ -46,6 +55,10 @@ export default function ParametresPage() {
     };
     load();
   }, [router]);
+
+  const applyPreset = (preset: typeof THEME_PRESETS[0]) => {
+    setForm(f => ({ ...f, color_primary: preset.primary, color_secondary: preset.secondary, color_accent: preset.accent, theme_preset: preset.name }));
+  };
 
   const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,10 +70,11 @@ export default function ParametresPage() {
 
   const uploadLogo = async (): Promise<string | null> => {
     if (!logoFile || !boutiqueId) return logoPreview;
+    const supabase = getSupabase();
     const ext = logoFile.name.split(".").pop();
     const path = `${boutiqueId}/logo.${ext}`;
-    await getSupabase().storage.from("boutique-logos").upload(path, logoFile, { upsert: true });
-    const { data } = getSupabase().storage.from("boutique-logos").getPublicUrl(path);
+    await supabase.storage.from("boutique-logos").upload(path, logoFile, { upsert: true });
+    const { data } = supabase.storage.from("boutique-logos").getPublicUrl(path);
     return data.publicUrl;
   };
 
@@ -69,21 +83,18 @@ export default function ParametresPage() {
     if (!boutiqueId) return;
     setSaving(true);
     try {
+      const supabase = getSupabase();
       const logoUrl = await uploadLogo();
-      const { error } = await getSupabase().from("boutiques").update({
-        ...form,
-        logo_url: logoUrl,
-      }).eq("id", boutiqueId);
+      const { error } = await supabase.from("boutiques").update({ ...form, logo_url: logoUrl }).eq("id", boutiqueId);
       if (error) throw error;
-      alert("✅ Paramètres sauvegardés !");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     } catch (err: unknown) {
       alert("Erreur : " + (err instanceof Error ? err.message : "Inconnue"));
     } finally {
       setSaving(false);
     }
   };
-
-  const COLORS = ["#F97316", "#EC4899", "#3B82F6", "#16A34A", "#EAB308", "#8B5CF6", "#6B7280", "#DC2626"];
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -92,18 +103,16 @@ export default function ParametresPage() {
   );
 
   return (
-    <div className="max-w-xl mx-auto space-y-5">
-      <h1 className="text-2xl font-bold text-gray-900">Paramètres boutique</h1>
+    <div className="max-w-2xl mx-auto space-y-5 pb-10">
+      <h1 className="text-2xl font-bold text-gray-900">⚙️ Paramètres boutique</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Logo */}
-        <div className="card p-4">
-          <label className="label">Logo de la boutique</label>
+        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+          <h2 className="font-bold text-gray-800 mb-3">🖼️ Logo</h2>
           <div className="flex items-center gap-4">
-            <div
-              onClick={() => fileRef.current?.click()}
-              className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 hover:border-orange-500 cursor-pointer transition-colors bg-gray-50 flex items-center justify-center"
-            >
+            <div onClick={() => fileRef.current?.click()}
+              className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 hover:border-orange-500 cursor-pointer transition-colors bg-gray-50 flex items-center justify-center">
               {logoPreview ? (
                 <>
                   <Image src={logoPreview} alt="Logo" fill className="object-cover" />
@@ -119,12 +128,12 @@ export default function ParametresPage() {
               )}
             </div>
             <div className="flex-1">
-              <p className="text-sm text-gray-600">Clique sur l&apos;image pour changer le logo</p>
-              <p className="text-xs text-gray-400">JPG, PNG — max 2MB</p>
+              <p className="text-sm text-gray-600">Clique pour changer le logo</p>
+              <p className="text-xs text-gray-400">JPG, PNG — max 2MB. Carré recommandé.</p>
               {logoPreview && (
                 <button type="button" onClick={() => { setLogoPreview(null); setLogoFile(null); }}
                   className="text-xs text-red-500 hover:underline mt-1 flex items-center gap-1">
-                  <X className="w-3 h-3" /> Supprimer le logo
+                  <X className="w-3 h-3" /> Supprimer
                 </button>
               )}
             </div>
@@ -133,52 +142,107 @@ export default function ParametresPage() {
         </div>
 
         {/* Infos */}
-        <div className="card p-4 space-y-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
+          <h2 className="font-bold text-gray-800">📋 Informations</h2>
           <div>
-            <label className="label">Nom de la boutique *</label>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Nom *</label>
             <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-              className="input-field" required />
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300" required />
           </div>
           <div>
-            <label className="label">Description</label>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Description</label>
             <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-              className="input-field resize-none" rows={3} placeholder="Décris ta boutique..." />
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none" rows={2} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">WhatsApp *</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">WhatsApp *</label>
               <input type="tel" value={form.whatsapp_number} onChange={e => setForm({ ...form, whatsapp_number: e.target.value })}
-                className="input-field" placeholder="+221 77..." required />
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300" required />
             </div>
             <div>
-              <label className="label">Quartier</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Quartier</label>
               <input type="text" value={form.quartier} onChange={e => setForm({ ...form, quartier: e.target.value })}
-                className="input-field" placeholder="Médina..." />
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300" />
             </div>
-          </div>
-          <div>
-            <label className="label">Adresse</label>
-            <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })}
-              className="input-field" placeholder="Rue 10, Villa 25..." />
-          </div>
-
-          {/* Couleur principale */}
-          <div>
-            <label className="label">Couleur principale</label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {COLORS.map((c) => (
-                <button key={c} type="button" onClick={() => setForm({ ...form, color_primary: c })}
-                  className={`w-8 h-8 rounded-xl transition-all ${form.color_primary === c ? "ring-2 ring-offset-2 ring-gray-900 scale-110" : ""}`}
-                  style={{ background: c }} />
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 mt-1">Cette couleur s&apos;affiche sur ton catalogue client</p>
           </div>
         </div>
 
-        <button type="submit" disabled={saving} className="btn-primary w-full flex items-center justify-center gap-2">
-          <Save className="w-4 h-4" />
-          {saving ? "Sauvegarde..." : "Sauvegarder les paramètres"}
+        {/* Thème couleurs */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
+          <h2 className="font-bold text-gray-800">🎨 Thème couleurs</h2>
+
+          {/* Aperçu live */}
+          <div className="rounded-2xl overflow-hidden border border-gray-100">
+            <div className="h-12 flex items-center px-4 gap-2" style={{ background: form.color_primary }}>
+              <div className="w-6 h-6 bg-white/20 rounded-lg" />
+              <span className="text-white font-bold text-sm">{form.name || "Ma Boutique"}</span>
+            </div>
+            <div className="p-3 flex gap-2" style={{ background: form.color_secondary + "22" }}>
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex-1 rounded-xl overflow-hidden border border-gray-100 bg-white">
+                  <div className="h-10 bg-gray-100" />
+                  <div className="p-2">
+                    <div className="h-2 bg-gray-200 rounded mb-1" />
+                    <div className="h-3 rounded" style={{ background: form.color_primary, width: "60%" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="h-8 flex items-center justify-center" style={{ background: form.color_secondary }}>
+              <span className="text-xs font-bold" style={{ color: form.color_accent }}>SENsiteAPP</span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 text-center">Aperçu de ton catalogue avec ces couleurs</p>
+
+          {/* Palettes prédéfinies */}
+          <div>
+            <p className="text-sm font-semibold text-gray-700 mb-2">Palettes prédéfinies</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {THEME_PRESETS.map((preset) => (
+                <button key={preset.name} type="button" onClick={() => applyPreset(preset)}
+                  className={`p-2 rounded-xl border-2 transition-all text-left ${
+                    form.theme_preset === preset.name ? "border-gray-900 shadow-md" : "border-gray-100 hover:border-gray-300"
+                  }`}>
+                  <div className="flex gap-1 mb-1">
+                    {preset.preview.map((c, i) => (
+                      <div key={i} className="w-4 h-4 rounded-full" style={{ background: c }} />
+                    ))}
+                  </div>
+                  <p className="text-xs font-medium text-gray-700 leading-tight">{preset.name}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Personnalisation */}
+          <div>
+            <p className="text-sm font-semibold text-gray-700 mb-2">Personnaliser les couleurs</p>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { key: "color_primary", label: "Principale", desc: "Header, boutons, prix" },
+                { key: "color_secondary", label: "Secondaire", desc: "Footer, fond page" },
+                { key: "color_accent", label: "Accent", desc: "Textes, highlights" },
+              ].map(({ key, label, desc }) => (
+                <div key={key} className="text-center">
+                  <div className="relative mx-auto w-12 h-12 rounded-xl overflow-hidden border-2 border-gray-200 cursor-pointer hover:border-gray-400 transition-colors mb-1">
+                    <div className="w-full h-full" style={{ background: form[key as keyof typeof form] }} />
+                    <input type="color" value={form[key as keyof typeof form] as string}
+                      onChange={e => setForm({ ...form, [key]: e.target.value, theme_preset: "custom" })}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                  </div>
+                  <p className="text-xs font-semibold text-gray-700">{label}</p>
+                  <p className="text-xs text-gray-400">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" disabled={saving}
+          className="w-full py-3.5 rounded-2xl text-white font-bold flex items-center justify-center gap-2 transition-all"
+          style={{ background: saved ? "#16A34A" : form.color_primary }}>
+          {saved ? <><Check className="w-5 h-5" /> Sauvegardé !</> : saving ? "Sauvegarde..." : <><Save className="w-5 h-5" /> Sauvegarder</>}
         </button>
       </form>
     </div>
