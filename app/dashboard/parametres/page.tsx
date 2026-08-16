@@ -14,6 +14,7 @@ export default function ParametresPage() {
   const [loading, setLoading] = useState(true);
   const [boutiqueId, setBoutiqueId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
   const logoUpload = useImageUpload();
 
   const [form, setForm] = useState({
@@ -61,27 +62,59 @@ export default function ParametresPage() {
   };
 
   const uploadLogo = async (): Promise<string | null> => {
+    // Pas de nouveau recadrage : on conserve le logo déjà enregistré.
     if (!logoUpload.croppedBlob || !boutiqueId) return logoUpload.preview;
+
     const supabase = getSupabase();
+    // Le dossier porte l'id de la boutique : c'est ce que vérifient les
+    // politiques RLS du bucket « boutique-logos ».
     const path = `${boutiqueId}/logo.jpg`;
-    await supabase.storage.from("boutique-logos").upload(path, logoUpload.croppedBlob, { upsert: true, contentType: "image/jpeg" });
+
+    const { error: uploadError } = await supabase.storage
+      .from("boutique-logos")
+      .upload(path, logoUpload.croppedBlob, { upsert: true, contentType: "image/jpeg" });
+    if (uploadError) {
+      throw new Error(`Envoi du logo impossible : ${uploadError.message}`);
+    }
+
     const { data } = supabase.storage.from("boutique-logos").getPublicUrl(path);
-    return `${data.publicUrl}?t=${Date.now()}`;
+    // Le chemin est fixe (upsert) : sans ce paramètre, le CDN continuerait de
+    // servir l'ancienne image après un changement de logo.
+    return `${data.publicUrl}?v=${Date.now()}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!boutiqueId) return;
     setSaving(true);
+    setError("");
     try {
       const supabase = getSupabase();
       const logoUrl = await uploadLogo();
-      const { error } = await supabase.from("boutiques").update({ ...form, logo_url: logoUrl }).eq("id", boutiqueId);
-      if (error) throw error;
+
+      const { data, error: updateError } = await supabase
+        .from("boutiques")
+        .update({ ...form, logo_url: logoUrl })
+        .eq("id", boutiqueId)
+        .select("id, logo_url, color_primary, color_secondary, color_accent, theme_preset")
+        .maybeSingle();
+
+      if (updateError) throw updateError;
+      // Un UPDATE bloqué par RLS ne renvoie pas d'erreur : il ne touche
+      // simplement aucune ligne. Sans ce test, la page afficherait
+      // « Sauvegardé ! » alors que rien n'a été écrit.
+      if (!data) {
+        throw new Error(
+          "Aucune modification enregistrée : ton compte n'a pas les droits sur cette boutique. Contacte Ali.IA Solutions.",
+        );
+      }
+
+      if (logoUrl) logoUpload.setPreview(logoUrl);
+      logoUpload.clearCropped();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: unknown) {
-      alert("Erreur : " + (err instanceof Error ? err.message : "Inconnue"));
+      setError(err instanceof Error ? err.message : "Erreur inconnue lors de la sauvegarde.");
     } finally {
       setSaving(false);
     }
@@ -107,6 +140,9 @@ export default function ParametresPage() {
       <h1 className="text-2xl font-bold text-gray-900">⚙️ Paramètres boutique</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-sm">{error}</div>
+        )}
         {/* Logo */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <h2 className="font-bold text-gray-800 mb-3">🖼️ Logo</h2>

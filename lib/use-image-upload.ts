@@ -40,6 +40,13 @@ export function useImageUpload() {
     setShowCropper(false);
   };
 
+  /**
+   * Oublie le blob recadré sans toucher à l'aperçu.
+   * À appeler après un enregistrement réussi : sinon un second clic sur
+   * « Sauvegarder » renvoie inutilement le même fichier.
+   */
+  const clearCropped = () => setCroppedBlob(null);
+
   return {
     fileRef,
     preview,
@@ -51,6 +58,7 @@ export function useImageUpload() {
     handleCropComplete,
     handleCropCancel,
     reset,
+    clearCropped,
     setPreview, // pour initialiser avec une image existante
   };
 }
