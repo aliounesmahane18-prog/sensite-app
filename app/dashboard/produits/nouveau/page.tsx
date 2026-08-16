@@ -1,58 +1,45 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getSessionProfile } from "@/lib/session";
-import { ErrorBanner } from "@/components/config-error";
-import { ProductForm } from "@/components/product-form";
-import { getErrorMessage } from "@/lib/utils";
+import { ArrowLeft } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import ProductForm from "@/components/product-form";
 
 export default function NouveauProduitPage() {
+  const router = useRouter();
   const [boutiqueId, setBoutiqueId] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-
     const load = async () => {
-      try {
-        const profile = await getSessionProfile();
-        if (cancelled) return;
-        if (!profile?.boutique_id) {
-          setError("Ton compte n'est rattaché à aucune boutique. Contacte Ali.IA Solutions.");
-          return;
-        }
-        setBoutiqueId(profile.boutique_id);
-      } catch (err) {
-        if (!cancelled) setError(getErrorMessage(err));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+      setUserId(user.id);
+      const { data: profile } = await supabase.from("profiles").select("boutique_id").eq("id", user.id).single();
+      setBoutiqueId(profile?.boutique_id || null);
+      setLoading(false);
     };
-
     load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [router]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
+    </div>
+  );
 
   return (
-    <div className="max-w-xl mx-auto space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
         <Link href="/dashboard/produits" className="text-gray-400 hover:text-gray-700">
-          ←
+          <ArrowLeft className="w-5 h-5" />
         </Link>
-        <h1 className="section-title">Nouveau produit</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Nouveau produit</h1>
       </div>
-
-      {error && <ErrorBanner message={error} />}
-
-      {loading ? (
-        <div className="flex items-center justify-center h-40">
-          <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
-        </div>
-      ) : (
-        boutiqueId && <ProductForm boutiqueId={boutiqueId} />
+      {boutiqueId && userId && (
+        <ProductForm boutiqueId={boutiqueId} userId={userId} />
       )}
     </div>
   );
