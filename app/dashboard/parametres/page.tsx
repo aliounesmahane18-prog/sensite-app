@@ -1,20 +1,20 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Camera, Save, X, Check } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import { THEME_PRESETS } from "@/lib/themes";
+import { useImageUpload } from "@/lib/use-image-upload";
+import ImageCropper from "@/components/image-cropper";
 
 export default function ParametresPage() {
   const router = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [boutiqueId, setBoutiqueId] = useState<string | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saved, setSaved] = useState(false);
+  const logoUpload = useImageUpload();
 
   const [form, setForm] = useState({
     name: "",
@@ -49,7 +49,7 @@ export default function ParametresPage() {
           color_accent: b.color_accent || "#EAB308",
           theme_preset: b.theme_preset || "custom",
         });
-        setLogoPreview(b.logo_url || null);
+        if (b.logo_url) logoUpload.setPreview(b.logo_url);
       }
       setLoading(false);
     };
@@ -60,22 +60,13 @@ export default function ParametresPage() {
     setForm(f => ({ ...f, color_primary: preset.primary, color_secondary: preset.secondary, color_accent: preset.accent, theme_preset: preset.name }));
   };
 
-  const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert("Logo trop lourd (max 2MB)"); return; }
-    setLogoFile(file);
-    setLogoPreview(URL.createObjectURL(file));
-  };
-
   const uploadLogo = async (): Promise<string | null> => {
-    if (!logoFile || !boutiqueId) return logoPreview;
+    if (!logoUpload.croppedBlob || !boutiqueId) return logoUpload.preview;
     const supabase = getSupabase();
-    const ext = logoFile.name.split(".").pop();
-    const path = `${boutiqueId}/logo.${ext}`;
-    await supabase.storage.from("boutique-logos").upload(path, logoFile, { upsert: true });
+    const path = `${boutiqueId}/logo.jpg`;
+    await supabase.storage.from("boutique-logos").upload(path, logoUpload.croppedBlob, { upsert: true, contentType: "image/jpeg" });
     const { data } = supabase.storage.from("boutique-logos").getPublicUrl(path);
-    return data.publicUrl;
+    return `${data.publicUrl}?t=${Date.now()}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,6 +95,15 @@ export default function ParametresPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-10">
+      {/* Cropper overlay */}
+      {logoUpload.showCropper && logoUpload.rawImage && (
+        <ImageCropper
+          imageSrc={logoUpload.rawImage}
+          onCropComplete={logoUpload.handleCropComplete}
+          onCancel={logoUpload.handleCropCancel}
+        />
+      )}
+
       <h1 className="text-2xl font-bold text-gray-900">⚙️ Paramètres boutique</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -111,11 +111,11 @@ export default function ParametresPage() {
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <h2 className="font-bold text-gray-800 mb-3">🖼️ Logo</h2>
           <div className="flex items-center gap-4">
-            <div onClick={() => fileRef.current?.click()}
+            <div onClick={logoUpload.openFilePicker}
               className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 hover:border-orange-500 cursor-pointer transition-colors bg-gray-50 flex items-center justify-center">
-              {logoPreview ? (
+              {logoUpload.preview ? (
                 <>
-                  <Image src={logoPreview} alt="Logo" fill className="object-cover" />
+                  <Image src={logoUpload.preview} alt="Logo" fill className="object-cover" />
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                     <Camera className="w-5 h-5 text-white" />
                   </div>
@@ -129,16 +129,16 @@ export default function ParametresPage() {
             </div>
             <div className="flex-1">
               <p className="text-sm text-gray-600">Clique pour changer le logo</p>
-              <p className="text-xs text-gray-400">JPG, PNG — max 2MB. Carré recommandé.</p>
-              {logoPreview && (
-                <button type="button" onClick={() => { setLogoPreview(null); setLogoFile(null); }}
+              <p className="text-xs text-gray-400">JPG, PNG jusqu&apos;à 10MB — tu pourras recadrer avant l&apos;envoi</p>
+              {logoUpload.preview && (
+                <button type="button" onClick={logoUpload.reset}
                   className="text-xs text-red-500 hover:underline mt-1 flex items-center gap-1">
                   <X className="w-3 h-3" /> Supprimer
                 </button>
               )}
             </div>
           </div>
-          <input ref={fileRef} type="file" accept="image/*" onChange={handleLogo} className="hidden" />
+          <input ref={logoUpload.fileRef} type="file" accept="image/*" onChange={logoUpload.handleFileChange} className="hidden" />
         </div>
 
         {/* Infos */}
@@ -168,11 +168,9 @@ export default function ParametresPage() {
           </div>
         </div>
 
-        {/* Thème couleurs */}
+        {/* Thème */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
           <h2 className="font-bold text-gray-800">🎨 Thème couleurs</h2>
-
-          {/* Aperçu live */}
           <div className="rounded-2xl overflow-hidden border border-gray-100">
             <div className="h-12 flex items-center px-4 gap-2" style={{ background: form.color_primary }}>
               <div className="w-6 h-6 bg-white/20 rounded-lg" />
@@ -193,49 +191,34 @@ export default function ParametresPage() {
               <span className="text-xs font-bold" style={{ color: form.color_accent }}>SENsiteAPP</span>
             </div>
           </div>
-          <p className="text-xs text-gray-400 text-center">Aperçu de ton catalogue avec ces couleurs</p>
-
-          {/* Palettes prédéfinies */}
-          <div>
-            <p className="text-sm font-semibold text-gray-700 mb-2">Palettes prédéfinies</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {THEME_PRESETS.map((preset) => (
-                <button key={preset.name} type="button" onClick={() => applyPreset(preset)}
-                  className={`p-2 rounded-xl border-2 transition-all text-left ${
-                    form.theme_preset === preset.name ? "border-gray-900 shadow-md" : "border-gray-100 hover:border-gray-300"
-                  }`}>
-                  <div className="flex gap-1 mb-1">
-                    {preset.preview.map((c, i) => (
-                      <div key={i} className="w-4 h-4 rounded-full" style={{ background: c }} />
-                    ))}
-                  </div>
-                  <p className="text-xs font-medium text-gray-700 leading-tight">{preset.name}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Personnalisation */}
-          <div>
-            <p className="text-sm font-semibold text-gray-700 mb-2">Personnaliser les couleurs</p>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { key: "color_primary", label: "Principale", desc: "Header, boutons, prix" },
-                { key: "color_secondary", label: "Secondaire", desc: "Footer, fond page" },
-                { key: "color_accent", label: "Accent", desc: "Textes, highlights" },
-              ].map(({ key, label, desc }) => (
-                <div key={key} className="text-center">
-                  <div className="relative mx-auto w-12 h-12 rounded-xl overflow-hidden border-2 border-gray-200 cursor-pointer hover:border-gray-400 transition-colors mb-1">
-                    <div className="w-full h-full" style={{ background: form[key as keyof typeof form] }} />
-                    <input type="color" value={form[key as keyof typeof form] as string}
-                      onChange={e => setForm({ ...form, [key]: e.target.value, theme_preset: "custom" })}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-                  </div>
-                  <p className="text-xs font-semibold text-gray-700">{label}</p>
-                  <p className="text-xs text-gray-400">{desc}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {THEME_PRESETS.map((preset) => (
+              <button key={preset.name} type="button" onClick={() => applyPreset(preset)}
+                className={`p-2 rounded-xl border-2 transition-all text-left ${form.theme_preset === preset.name ? "border-gray-900 shadow-md" : "border-gray-100 hover:border-gray-300"}`}>
+                <div className="flex gap-1 mb-1">
+                  {preset.preview.map((c, i) => <div key={i} className="w-4 h-4 rounded-full" style={{ background: c }} />)}
                 </div>
-              ))}
-            </div>
+                <p className="text-xs font-medium text-gray-700 leading-tight">{preset.name}</p>
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { key: "color_primary", label: "Principale", desc: "Header, boutons" },
+              { key: "color_secondary", label: "Secondaire", desc: "Footer, fond" },
+              { key: "color_accent", label: "Accent", desc: "Textes, badges" },
+            ].map(({ key, label, desc }) => (
+              <div key={key} className="text-center">
+                <div className="relative mx-auto w-12 h-12 rounded-xl overflow-hidden border-2 border-gray-200 cursor-pointer hover:border-gray-400 transition-colors mb-1">
+                  <div className="w-full h-full" style={{ background: form[key as keyof typeof form] as string }} />
+                  <input type="color" value={form[key as keyof typeof form] as string}
+                    onChange={e => setForm({ ...form, [key]: e.target.value, theme_preset: "custom" })}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                </div>
+                <p className="text-xs font-semibold text-gray-700">{label}</p>
+                <p className="text-xs text-gray-400">{desc}</p>
+              </div>
+            ))}
           </div>
         </div>
 
