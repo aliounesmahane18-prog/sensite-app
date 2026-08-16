@@ -35,7 +35,11 @@ CREATE TABLE boutiques (
   banner_url TEXT,
   address TEXT,
   quartier TEXT, -- ex: Medina, Plateau, Parcelles...
-  color_primary TEXT DEFAULT '#F97316', -- couleur principale (orange par défaut)
+  -- Thème : 3 couleurs personnalisables depuis /dashboard/parametres
+  color_primary TEXT DEFAULT '#F97316',   -- header, boutons
+  color_secondary TEXT DEFAULT '#1C1917', -- footer, fonds
+  color_accent TEXT DEFAULT '#EAB308',    -- badges, textes mis en avant
+  theme_preset TEXT DEFAULT 'custom',     -- nom du préréglage choisi
   is_active BOOLEAN DEFAULT TRUE,
   -- Abonnement (géré manuellement par Ali)
   subscription_status TEXT DEFAULT 'pending' CHECK (subscription_status IN ('pending', 'active', 'suspended', 'cancelled')),
@@ -64,6 +68,8 @@ CREATE TABLE products (
   is_available BOOLEAN DEFAULT TRUE,
   is_featured BOOLEAN DEFAULT FALSE, -- mis en avant
   stock_quantity INTEGER, -- null = illimité
+  has_variants BOOLEAN DEFAULT FALSE, -- taille, couleur...
+  variants JSONB DEFAULT '[]'::jsonb, -- [{name, values: []}]
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -138,8 +144,63 @@ CREATE POLICY "superadmin_all_payments" ON subscription_payments FOR ALL
   USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'super_admin');
 
 -- Manager voit sa boutique
-CREATE POLICY "manager_own_boutique" ON boutiques FOR SELECT 
+CREATE POLICY "manager_own_boutique" ON boutiques FOR SELECT
   USING ((SELECT boutique_id FROM profiles WHERE id = auth.uid()) = id);
+
+-- Manager modifie sa boutique (logo, couleurs, infos) depuis /dashboard/parametres.
+-- Sans cette politique, l'UPDATE ne touche AUCUNE ligne et ne lève AUCUNE erreur :
+-- l'écran affiche « Sauvegardé ! » alors que rien n'est écrit.
+CREATE POLICY "manager_update_own_boutique" ON boutiques FOR UPDATE TO authenticated
+  USING ((SELECT boutique_id FROM profiles WHERE id = auth.uid()) = id)
+  WITH CHECK ((SELECT boutique_id FROM profiles WHERE id = auth.uid()) = id);
+
+-- Une politique UPDATE porte sur la ligne entière : sans garde-fou, un gérant
+-- pourrait activer son propre abonnement et utiliser le service gratuitement.
+-- Une policy RLS ne sait pas comparer OLD et NEW, d'où ce trigger.
+-- Attention : dans une fonction SECURITY DEFINER, `current_user` vaut le
+-- propriétaire de la fonction et non l'appelant — on lit donc le rôle dans les
+-- claims JWT, qui sont propres à la requête entrante.
+CREATE OR REPLACE FUNCTION public.protect_boutique_admin_fields()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  jwt_role text;
+  caller_role text;
+BEGIN
+  jwt_role := nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role';
+
+  -- Pas de claims = accès SQL direct (éditeur Supabase, migrations) ; et les
+  -- routes serveur utilisent la clé service role. Les deux gardent la main.
+  IF jwt_role IS NULL OR jwt_role = 'service_role' THEN
+    RETURN NEW;
+  END IF;
+
+  IF jwt_role = 'authenticated' THEN
+    SELECT role INTO caller_role FROM public.profiles WHERE id = auth.uid();
+    IF caller_role = 'super_admin' THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+
+  NEW.slug                := OLD.slug;
+  NEW.is_active           := OLD.is_active;
+  NEW.subscription_status := OLD.subscription_status;
+  NEW.subscription_start  := OLD.subscription_start;
+  NEW.subscription_end    := OLD.subscription_end;
+  NEW.monthly_price       := OLD.monthly_price;
+  NEW.created_by          := OLD.created_by;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_boutiques_protect_admin_fields ON boutiques;
+CREATE TRIGGER tr_boutiques_protect_admin_fields
+  BEFORE UPDATE ON boutiques
+  FOR EACH ROW EXECUTE FUNCTION public.protect_boutique_admin_fields();
 
 CREATE POLICY "manager_own_products" ON products FOR ALL 
   USING ((SELECT boutique_id FROM profiles WHERE id = auth.uid()) = boutique_id);
@@ -156,6 +217,11 @@ CREATE POLICY "public_view_products" ON products FOR SELECT USING (
   EXISTS (SELECT 1 FROM boutiques WHERE id = boutique_id AND is_active = TRUE AND subscription_status = 'active')
 );
 
+-- C'est CETTE politique qui applique le modèle économique : une boutique dont
+-- l'abonnement n'est pas payé devient invisible via l'API, pas seulement dans
+-- l'interface. Ne jamais la doubler d'une politique en USING (true) : ça
+-- rendrait publiques les boutiques suspendues, avec leur monthly_price et leur
+-- numéro WhatsApp.
 CREATE POLICY "public_view_boutique" ON boutiques FOR SELECT USING (is_active = TRUE AND subscription_status = 'active');
 
 -- ============================================
@@ -225,6 +291,46 @@ CREATE POLICY "product_images_delete_own_boutique"
       SELECT boutique_id::text FROM public.profiles WHERE id = auth.uid()
     )
   );
+
+-- Logos : même principe. Ne JAMAIS créer ces politiques sans préciser
+-- `TO authenticated` — une politique sans rôle s'applique à PUBLIC, donc à
+-- `anon` : n'importe quel visiteur pourrait écraser le logo d'une boutique.
+CREATE POLICY "boutique_logos_insert_own"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'boutique-logos'
+    AND (storage.foldername(name))[1] = (
+      SELECT boutique_id::text FROM public.profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "boutique_logos_update_own"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'boutique-logos'
+    AND (storage.foldername(name))[1] = (
+      SELECT boutique_id::text FROM public.profiles WHERE id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    bucket_id = 'boutique-logos'
+    AND (storage.foldername(name))[1] = (
+      SELECT boutique_id::text FROM public.profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "boutique_logos_delete_own"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'boutique-logos'
+    AND (storage.foldername(name))[1] = (
+      SELECT boutique_id::text FROM public.profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "public_read_logos"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'boutique-logos');
 
 CREATE POLICY "product_images_superadmin_all"
   ON storage.objects FOR ALL TO authenticated

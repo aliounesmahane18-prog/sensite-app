@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
+import { getSupabase } from "@/lib/supabase";
 import { CATEGORY_ICONS } from "@/lib/themes";
 
 interface Boutique {
@@ -49,14 +50,10 @@ export default function CataloguePage() {
 
   useEffect(() => {
     const load = async () => {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(
-        "https://kpymjqehhtdlwdmefecs.supabase.co",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtweW1qcWVoaHRkbHdkbWVmZWNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MTA2MjcsImV4cCI6MjEwMjE4NjYyN30.B8ostjxkfgnmtR_8--tvJ5ZU_QtnPk56Q9AXSH4KcWU"
-      );
-      const { data: b, error } = await supabase.from("boutiques").select("*")
-        .eq("slug", slug).eq("is_active", true).eq("subscription_status", "active").single();
-      if (error || !b) { setNotFound(true); setLoading(false); return; }
+      const supabase = getSupabase();
+      const { data: b } = await supabase.from("boutiques").select("*")
+        .eq("slug", slug).eq("is_active", true).eq("subscription_status", "active").maybeSingle();
+      if (!b) { setNotFound(true); setLoading(false); return; }
       setBoutique(b);
 
       // Générer les icônes flottantes
