@@ -52,7 +52,7 @@ export default function CataloguePage() {
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(
         "https://kpymjqehhtdlwdmefecs.supabase.co",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtwem1qcWVoaHRkbHdkbWVmZWNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyMjcsImV4cCI6MjA1NzQ2MjI3fQ.B8ostjxkfgnmtR_8--tvJ5ZU_QtnPk56Q9AXSH4KcWU"
+        "COLLE_TA_VRAIE_CLE_ANON"
       );
       const { data: b, error } = await supabase.from("boutiques").select("*")
         .eq("slug", slug).eq("is_active", true).eq("subscription_status", "active").single();
