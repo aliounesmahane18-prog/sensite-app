@@ -351,3 +351,52 @@ CREATE POLICY "product_images_superadmin_all"
 -- route serveur `POST /api/orders`, qui utilise la clé service role et
 -- recalcule les prix depuis la base. Aucune politique `anon` n'est donc
 -- nécessaire ici — et c'est volontaire.
+
+-- ============================================
+-- RÔLE PROSPECTEUR
+-- ============================================
+-- Un prospecteur démarche les commerces sur le terrain, crée leurs boutiques
+-- en mode démo, et les configure. Seul le super admin peut ensuite rendre une
+-- boutique publique.
+
+CREATE TABLE prospecteurs (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  nom TEXT NOT NULL,
+  prenom TEXT,
+  telephone TEXT,
+  ville TEXT,
+  quartier TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT FALSE, -- naît suspendu
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  last_activity TIMESTAMPTZ
+);
+
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE profiles ADD CONSTRAINT profiles_role_check
+  CHECK (role IN ('super_admin', 'manager', 'employee', 'prospecteur'));
+
+ALTER TABLE boutiques
+  ADD COLUMN created_by_role TEXT CHECK (created_by_role IS NULL OR created_by_role IN ('super_admin','manager','prospecteur')),
+  ADD COLUMN prospecteur_id UUID REFERENCES prospecteurs(id) ON DELETE SET NULL,
+  ADD COLUMN ville TEXT,
+  ADD COLUMN status TEXT NOT NULL DEFAULT 'demo' CHECK (status IN ('demo','active','suspended'));
+
+-- ATTENTION : `status` recouvre le couple is_active + subscription_status déjà
+-- utilisé par le catalogue public. Deux sources de vérité divergent toujours,
+-- donc un trigger les tient alignées dans les deux sens :
+--   demo <-> (TRUE, 'pending')   active <-> (TRUE, 'active')
+--   suspended <-> (FALSE, 'suspended')
+-- Voir la fonction sync_boutique_status() appliquée par migration.
+--
+-- `status`, `prospecteur_id` et `created_by_role` font partie des colonnes
+-- protégées par protect_boutique_admin_fields() : sans ça un prospecteur
+-- rendrait sa propre boutique publique sans validation. Un trigger
+-- force_demo_status_on_insert() applique le même verrou à la création.
+
+-- RLS prospecteurs : le super admin voit tout, le prospecteur voit sa fiche
+-- (même suspendu, pour afficher l'écran d'attente).
+-- RLS boutiques/products/orders : accès limité aux boutiques dont
+-- prospecteur_id appartient à un prospecteur ACTIF (fonction mes_prospecteur_ids()).
+-- Un prospecteur suspendu est coupé au niveau base, pas seulement dans l'UI.

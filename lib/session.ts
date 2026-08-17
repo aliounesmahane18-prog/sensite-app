@@ -1,5 +1,5 @@
 import { getSupabase } from "./supabase";
-import type { UserRole } from "@/types";
+import type { Prospecteur, UserRole } from "@/types";
 
 export interface SessionProfile {
   id: string;
@@ -27,4 +27,34 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
     .maybeSingle();
 
   return (data as SessionProfile | null) ?? null;
+}
+
+/**
+ * Fiche prospecteur de l'utilisateur connecté, ou `null` s'il n'en est pas un.
+ *
+ * La politique RLS `prospecteur_own_profile` autorise la lecture même quand le
+ * compte est suspendu : c'est ce qui permet d'afficher l'écran « en attente
+ * d'activation » plutôt qu'une page vide.
+ */
+export async function getProspecteur(): Promise<Prospecteur | null> {
+  const supabase = getSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from("prospecteurs")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  return (data as Prospecteur | null) ?? null;
+}
+
+/** Route d'accueil correspondant au rôle, utilisée après connexion. */
+export function homeForRole(role: UserRole): string {
+  if (role === "super_admin") return "/admin";
+  if (role === "prospecteur") return "/prospecteur";
+  return "/dashboard";
 }

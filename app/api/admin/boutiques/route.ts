@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
         monthly_price: Math.round(monthlyPrice),
         subscription_status: "pending",
         created_by: auth.userId,
+        created_by_role: "super_admin",
       })
       .select()
       .single();

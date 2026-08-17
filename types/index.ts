@@ -1,4 +1,20 @@
-export type UserRole = "super_admin" | "manager" | "employee";
+export type UserRole = "super_admin" | "manager" | "employee" | "prospecteur";
+export type BoutiqueStatus = "demo" | "active" | "suspended";
+export type CreatedByRole = "super_admin" | "manager" | "prospecteur";
+
+export interface Prospecteur {
+  id: string;
+  user_id: string;
+  nom: string;
+  prenom: string | null;
+  telephone: string | null;
+  ville: string | null;
+  quartier: string | null;
+  is_active: boolean;
+  created_at: string;
+  created_by: string | null;
+  last_activity: string | null;
+}
 export type BoutiqueCategory =
   | "pret_a_porter"
   | "electromenager"

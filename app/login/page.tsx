@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabase, SupabaseConfigError } from "@/lib/supabase";
 import { isSupabaseConfigured } from "@/lib/env";
-import { getSessionProfile } from "@/lib/session";
+import { getSessionProfile, homeForRole } from "@/lib/session";
+import type { UserRole } from "@/types";
 import { ConfigError, ErrorBanner } from "@/components/config-error";
 import { getErrorMessage } from "@/lib/utils";
 
@@ -46,7 +47,7 @@ export default function LoginPage() {
     };
   }, [configured]);
 
-  const goToSpace = (role: string) => router.replace(role === "super_admin" ? "/admin" : "/dashboard");
+  const goToSpace = (role: string) => router.replace(homeForRole(role as UserRole));
 
   const switchAccount = async () => {
     setError("");
@@ -92,7 +93,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace(profile.role === "super_admin" ? "/admin" : "/dashboard");
+      router.replace(homeForRole(profile.role));
     } catch (err) {
       setError(err instanceof SupabaseConfigError ? err.message : getErrorMessage(err));
     } finally {
