@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { getSupabase } from "@/lib/supabase";
@@ -39,6 +39,9 @@ export default function CataloguePage() {
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [floatingIcons, setFloatingIcons] = useState<FloatingIcon[]>([]);
   const [scrollY, setScrollY] = useState(0);
+  // `null` = onglet « Tout »
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Parallaxe au scroll
@@ -100,6 +103,43 @@ export default function CataloguePage() {
   const count = cart.reduce((s, i) => s + i.quantity, 0);
   const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 
+  // ── CATÉGORIES ──
+  // Extraites des produits eux-mêmes : le gérant saisit la catégorie en texte
+  // libre, il n'y a pas de liste de référence en base.
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of products) {
+      const label = p.category?.trim();
+      if (!label) continue; // les produits sans catégorie ne vivent que sous « Tout »
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  }, [products]);
+
+  // Si la catégorie active disparaît (produit modifié ou retiré), on retombe
+  // sur « Tout » plutôt que d'afficher une grille vide sans explication.
+  useEffect(() => {
+    if (activeCategory && !categories.some(c => c.name === activeCategory)) {
+      setActiveCategory(null);
+    }
+  }, [categories, activeCategory]);
+
+  const normalize = (value: string) =>
+    value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const visibleProducts = useMemo(() => {
+    const query = normalize(search.trim());
+    return products.filter(p => {
+      // La recherche s'applique à l'intérieur de la catégorie active.
+      if (activeCategory && p.category?.trim() !== activeCategory) return false;
+      if (!query) return true;
+      return [p.name, p.description, p.category]
+        .some(field => field && normalize(field).includes(query));
+    });
+  }, [products, activeCategory, search]);
+
   const sendOrder = () => {
     if (!orderForm.name || !orderForm.phone || !boutique) return;
     const items = cart.map(i => {
@@ -137,7 +177,10 @@ export default function CataloguePage() {
   );
 
   return (
-    <div className="min-h-screen relative overflow-hidden" ref={containerRef}
+    // Pas d'`overflow-hidden` ici : un ancêtre qui masque le débordement crée un
+    // conteneur de défilement et neutralise `position: sticky` sur le header et
+    // les onglets. Le calque parallaxe est en `fixed` et se découpe lui-même.
+    <div className="min-h-screen relative" ref={containerRef}
       style={{ background: `${secondary}11` }}>
 
       {/* ── ARRIÈRE-PLAN PARALLAXE ── */}
@@ -162,8 +205,9 @@ export default function CataloguePage() {
         }} />
       </div>
 
-      {/* ── HEADER ── */}
-      <header className="sticky top-0 z-30 shadow-lg" style={{ background: primary }}>
+      {/* ── HEADER + ONGLETS (collés ensemble au scroll) ── */}
+      <div className="sticky top-0 z-30 shadow-lg">
+      <header style={{ background: primary }}>
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {boutique.logo_url ? (
@@ -190,6 +234,58 @@ export default function CataloguePage() {
         </div>
       </header>
 
+      {/* ── RECHERCHE + ONGLETS CATÉGORIES ── */}
+      {products.length > 0 && (
+        <div className="border-b" style={{ background: "white", borderColor: `${primary}22` }}>
+          <div className="max-w-2xl mx-auto px-3 pt-3 pb-2 space-y-2">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">🔍</span>
+              <input
+                type="search"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher un produit..."
+                aria-label="Rechercher un produit"
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all"
+                style={{ borderColor: `${primary}33`, boxShadow: "none" }}
+              />
+            </div>
+
+            {categories.length > 0 && (
+              // whitespace-nowrap + overflow-x-auto : la barre défile sur mobile
+              // au lieu de passer à la ligne.
+              <div
+                className="flex gap-2 overflow-x-auto whitespace-nowrap pb-1 [&::-webkit-scrollbar]:hidden"
+                style={{ scrollbarWidth: "none" }}
+                role="tablist"
+                aria-label="Catégories de produits"
+              >
+                {[{ name: null as string | null, label: "Tout", total: products.length }, ...categories.map(c => ({ name: c.name as string | null, label: c.name, total: c.total }))].map(tab => {
+                  const isActive = activeCategory === tab.name;
+                  return (
+                    <button
+                      key={tab.name ?? "__all__"}
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => setActiveCategory(tab.name)}
+                      className="shrink-0 px-3.5 py-1.5 rounded-full text-sm font-semibold border transition-all active:scale-95"
+                      style={
+                        isActive
+                          ? { background: primary, borderColor: primary, color: "white" }
+                          : { background: "transparent", borderColor: `${primary}44`, color: primary }
+                      }
+                    >
+                      {tab.label} ({tab.total})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      </div>
+
       {/* ── PRODUITS ── */}
       <main className="relative z-10 max-w-2xl mx-auto px-3 py-4 pb-24">
         {products.length === 0 ? (
@@ -197,9 +293,25 @@ export default function CataloguePage() {
             <p className="text-4xl mb-3">📦</p>
             <p className="text-gray-500">Aucun produit disponible</p>
           </div>
+        ) : visibleProducts.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-4xl mb-3">🔍</p>
+            <p className="text-gray-500">
+              {search.trim()
+                ? `Aucun produit ne correspond à « ${search.trim()} »`
+                : "Aucun produit dans cette catégorie"}
+            </p>
+            <button
+              onClick={() => { setSearch(""); setActiveCategory(null); }}
+              className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold text-white active:scale-95 transition-all"
+              style={{ background: primary }}
+            >
+              Voir tous les produits
+            </button>
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {products.map(p => (
+            {visibleProducts.map(p => (
               <div key={p.id} className="rounded-2xl overflow-hidden shadow-sm border"
                 style={{ background: "white", borderColor: `${primary}22` }}>
                 <div className="h-40 relative" style={{ background: `${secondary}11` }}>
