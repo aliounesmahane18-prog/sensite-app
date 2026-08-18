@@ -7,6 +7,8 @@ import { getSupabase } from "@/lib/supabase";
 import { getSessionProfile } from "@/lib/session";
 import { ErrorBanner } from "@/components/config-error";
 import { catalogueUrl } from "@/lib/env";
+import FacturationPanel from "@/components/facturation-panel";
+import { echeance, montantLisible, type Facturation } from "@/lib/facturation";
 import type { BoutiqueStatus, Prospecteur } from "@/types";
 
 interface BoutiqueRow {
@@ -17,7 +19,11 @@ interface BoutiqueRow {
   quartier: string | null;
   status: BoutiqueStatus;
   created_at: string;
-  monthly_price: number;
+  monthly_price: number | null;
+  date_prochain_paiement: string | null;
+  notes_paiement: string | null;
+  montant_modifie_par: string | null;
+  montant_modifie_at: string | null;
 }
 
 const STATUS_BADGE: Record<BoutiqueStatus, { label: string; className: string }> = {
@@ -56,7 +62,7 @@ export default function AdminProspecteurDetailPage() {
 
         const { data: bs } = await supabase
           .from("boutiques")
-          .select("id, name, slug, ville, quartier, status, created_at, monthly_price")
+          .select("id, name, slug, ville, quartier, status, created_at, monthly_price, date_prochain_paiement, notes_paiement, montant_modifie_par, montant_modifie_at")
           .eq("prospecteur_id", prospecteurId)
           .order("created_at", { ascending: false });
         if (cancelled) return;
@@ -200,6 +206,14 @@ export default function AdminProspecteurDetailPage() {
                           <span>📍 {[b.ville, b.quartier].filter(Boolean).join(", ")}</span>
                         )}
                         <span>🗓 {fmtDateHeure(b.created_at)}</span>
+                        <span>
+                          💰 {montantLisible(b.monthly_price) ?? (
+                            <span className="text-gray-300">Non défini</span>
+                          )}
+                        </span>
+                        <span className={`badge ${echeance(b.date_prochain_paiement).className}`}>
+                          {echeance(b.date_prochain_paiement).label}
+                        </span>
                       </div>
                     </div>
                     <a href={catalogueUrl(b.slug)} target="_blank" rel="noopener noreferrer"
@@ -224,6 +238,14 @@ export default function AdminProspecteurDetailPage() {
                       </button>
                     ))}
                   </div>
+
+                  <FacturationPanel
+                    boutiqueId={b.id}
+                    facturation={b}
+                    onSaved={(f: Facturation) =>
+                      setBoutiques(prev => prev.map(x => (x.id === b.id ? { ...x, ...f } : x)))
+                    }
+                  />
                 </div>
               );
             })

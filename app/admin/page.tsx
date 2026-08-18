@@ -7,6 +7,8 @@ import { getSessionProfile } from "@/lib/session";
 import { catalogueUrl, isSupabaseConfigured } from "@/lib/env";
 import { ConfigError, ErrorBanner } from "@/components/config-error";
 import { formatFcfa, getErrorMessage } from "@/lib/utils";
+import FacturationPanel from "@/components/facturation-panel";
+import { echeance, montantLisible, type Facturation } from "@/lib/facturation";
 
 interface Boutique {
   id: string;
@@ -14,8 +16,12 @@ interface Boutique {
   slug: string;
   category: string;
   subscription_status: string;
-  monthly_price: number;
+  monthly_price: number | null;
   quartier: string | null;
+  date_prochain_paiement: string | null;
+  notes_paiement: string | null;
+  montant_modifie_par: string | null;
+  montant_modifie_at: string | null;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -60,7 +66,7 @@ export default function AdminPage() {
 
         const { data, error: queryError } = await getSupabase()
           .from("boutiques")
-          .select("id, name, slug, category, subscription_status, monthly_price, quartier")
+          .select("id, name, slug, category, subscription_status, monthly_price, quartier, date_prochain_paiement, notes_paiement, montant_modifie_par, montant_modifie_at")
           .order("created_at", { ascending: false });
 
         if (cancelled) return;
@@ -136,7 +142,7 @@ export default function AdminPage() {
   const stats = {
     total: boutiques.length,
     active: activeBoutiques.length,
-    revenue: activeBoutiques.reduce((sum, b) => sum + b.monthly_price, 0),
+    revenue: activeBoutiques.reduce((sum, b) => sum + (b.monthly_price ?? 0), 0),
   };
 
   return (
@@ -188,7 +194,8 @@ export default function AdminPage() {
 
         <div className="space-y-3">
           {boutiques.map((b) => (
-            <div key={b.id} className="card p-4 flex items-center gap-4 flex-wrap sm:flex-nowrap">
+            <div key={b.id} className="card p-4 space-y-3">
+              <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
               <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white font-bold shrink-0">
                 {b.name.slice(0, 2).toUpperCase()}
               </div>
@@ -202,7 +209,14 @@ export default function AdminPage() {
                 <div className="text-xs text-gray-400 flex gap-3 flex-wrap mt-0.5">
                   {b.quartier && <span>📍 {b.quartier}</span>}
                   <span className="font-mono">/boutique/{b.slug}</span>
-                  <span className="text-orange-500 font-semibold">{formatFcfa(b.monthly_price)}/mois</span>
+                  <span className="text-orange-500 font-semibold">
+                    {montantLisible(b.monthly_price) ? `${montantLisible(b.monthly_price)}/mois` : (
+                      <span className="text-gray-300">Montant non défini</span>
+                    )}
+                  </span>
+                  <span className={`badge ${echeance(b.date_prochain_paiement).className}`}>
+                    🗓 {echeance(b.date_prochain_paiement).label}
+                  </span>
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">
@@ -225,6 +239,15 @@ export default function AdminPage() {
                   {b.subscription_status === "active" ? "Suspendre" : "✓ Activer"}
                 </button>
               </div>
+              </div>
+
+              <FacturationPanel
+                boutiqueId={b.id}
+                facturation={b}
+                onSaved={(f: Facturation) =>
+                  setBoutiques((prev) => prev.map((x) => (x.id === b.id ? { ...x, ...f } : x)))
+                }
+              />
             </div>
           ))}
 

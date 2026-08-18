@@ -50,6 +50,9 @@ export default function ProspecteurPage() {
     whatsapp_number: "",
     ville: "",
     quartier: "",
+    monthly_price: "",
+    date_prochain_paiement: "",
+    notes_paiement: "",
   });
 
   const chargerBoutiques = useCallback(async (prospecteurId: string) => {
@@ -141,6 +144,11 @@ export default function ProspecteurPage() {
           quartier: form.quartier.trim() || prospecteur.quartier,
           prospecteur_id: prospecteur.id,
           created_by_role: "prospecteur",
+          // Facturation : saisissable uniquement ici. Après création, seul le
+          // super admin peut la modifier (trigger protect_boutique_admin_fields).
+          monthly_price: form.monthly_price.trim() === "" ? 0 : Number.parseInt(form.monthly_price, 10),
+          date_prochain_paiement: form.date_prochain_paiement || null,
+          notes_paiement: form.notes_paiement.trim() || null,
         })
         .select("id, name, slug, ville, quartier, status, created_at")
         .maybeSingle();
@@ -154,7 +162,10 @@ export default function ProspecteurPage() {
 
       setBoutiques(prev => [data, ...prev]);
       setModalOuverte(false);
-      setForm({ name: "", category: "bazar", whatsapp_number: "", ville: "", quartier: "" });
+      setForm({
+        name: "", category: "bazar", whatsapp_number: "", ville: "", quartier: "",
+        monthly_price: "", date_prochain_paiement: "", notes_paiement: "",
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Création impossible.");
     } finally {
@@ -426,6 +437,61 @@ export default function ProspecteurPage() {
             <p className="text-xs text-gray-500">
               Laissés vides, la ville et le quartier reprennent ta zone.
             </p>
+
+            <div className="border-t border-gray-100 pt-4 space-y-4">
+              <div>
+                <h3 className="font-bold text-gray-900">💰 Facturation</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Optionnel mais recommandé. ⓘ Ces informations seront visibles et modifiables
+                  par l&apos;administrateur — <strong>tu ne pourras plus les changer</strong> après
+                  la création.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label" htmlFor="b-montant">
+                    Montant mensuel (FCFA)
+                  </label>
+                  <input
+                    id="b-montant"
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={form.monthly_price}
+                    onChange={e => setForm({ ...form, monthly_price: e.target.value })}
+                    className="input-field"
+                    placeholder="5000"
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="b-echeance">
+                    Prochain paiement
+                  </label>
+                  <input
+                    id="b-echeance"
+                    type="date"
+                    value={form.date_prochain_paiement}
+                    onChange={e => setForm({ ...form, date_prochain_paiement: e.target.value })}
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label" htmlFor="b-notes-paiement">
+                  Notes de paiement
+                </label>
+                <textarea
+                  id="b-notes-paiement"
+                  rows={2}
+                  value={form.notes_paiement}
+                  onChange={e => setForm({ ...form, notes_paiement: e.target.value })}
+                  className="input-field resize-none"
+                  placeholder="Le client préfère payer le 1er du mois"
+                />
+              </div>
+            </div>
 
             <div className="flex gap-3">
               <button

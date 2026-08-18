@@ -400,3 +400,28 @@ ALTER TABLE boutiques
 -- RLS boutiques/products/orders : accès limité aux boutiques dont
 -- prospecteur_id appartient à un prospecteur ACTIF (fonction mes_prospecteur_ids()).
 -- Un prospecteur suspendu est coupé au niveau base, pas seulement dans l'UI.
+
+-- ============================================
+-- FACTURATION PAR BOUTIQUE
+-- ============================================
+-- Le montant mensuel reste porté par `monthly_price` (colonne historique déjà
+-- utilisée par le calcul de revenu de /admin). Pas de seconde colonne montant :
+-- deux sources de vérité sur une donnée financière finissent par diverger.
+ALTER TABLE boutiques
+  ADD COLUMN date_prochain_paiement DATE,
+  ADD COLUMN notes_paiement TEXT,
+  ADD COLUMN montant_modifie_par TEXT CHECK (montant_modifie_par IS NULL OR montant_modifie_par IN ('prospecteur','super_admin')),
+  ADD COLUMN montant_modifie_at TIMESTAMPTZ;
+
+-- Règle métier : le prospecteur saisit la facturation UNE SEULE FOIS, à la
+-- création. `monthly_price`, `date_prochain_paiement` et `notes_paiement`
+-- figurent dans les colonnes rétablies par protect_boutique_admin_fields()
+-- pour tout rôle autre que super_admin — l'INSERT passe, l'UPDATE est annulé
+-- silencieusement (la ligne est bien modifiée pour les autres champs).
+--
+-- stamp_facturation() renseigne montant_modifie_par / montant_modifie_at à
+-- partir du rôle réel de l'appelant (role_appelant(), lu dans les claims JWT).
+-- Le client n'envoie jamais ces deux colonnes : elles ne peuvent donc pas
+-- mentir sur l'auteur de la modification.
+-- Le trigger est nommé « stamp » pour s'exécuter APRÈS « protect » (ordre
+-- alphabétique) : une valeur rétablie ne doit pas compter comme modification.
