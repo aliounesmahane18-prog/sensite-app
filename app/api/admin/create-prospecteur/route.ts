@@ -21,12 +21,10 @@ function generatePassword(): string {
  * (à raison) d'insérer un profil portant l'id d'un autre utilisateur, et cette
  * clé ne doit jamais atteindre le navigateur.
  *
- * À noter : `auth.admin.createUser()` n'envoie AUCUN email — il n'existe pas
- * d'option `send_email` sur cette méthode. On crée donc le compte avec un mot
- * de passe temporaire (utilisable immédiatement grâce à `email_confirm`), puis
- * on déclenche séparément un email de définition de mot de passe. Le mot de
- * passe est aussi renvoyé à l'admin : à Dakar, l'email n'arrive pas toujours et
- * le relais se fait par WhatsApp.
+ * Aucun email n'est envoyé : `auth.admin.createUser()` n'en envoie pas, et on
+ * ne déclenche rien d'autre. Le mot de passe temporaire est renvoyé à l'admin
+ * et affiché une seule fois, comme pour la création de boutique — le relais se
+ * fait par WhatsApp, ce qui est plus fiable qu'un email à Dakar.
  */
 export async function POST(request: NextRequest) {
   const auth = await requireSuperAdmin(request);
@@ -110,26 +108,9 @@ export async function POST(request: NextRequest) {
       throw new Error(prospError?.message ?? "Création de la fiche prospecteur impossible.");
     }
 
-    // 4. Email de définition de mot de passe (best-effort).
-    // Dépend de la configuration SMTP du projet Supabase : le SMTP par défaut
-    // est fortement limité en volume. Un échec ici ne doit pas annuler la
-    // création — l'admin dispose du mot de passe temporaire.
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? "";
-    let emailEnvoye = true;
-    let emailErreur: string | null = null;
-    const { error: mailError } = await admin.auth.resetPasswordForEmail(email, {
-      redirectTo: appUrl ? `${appUrl}/login` : undefined,
-    });
-    if (mailError) {
-      emailEnvoye = false;
-      emailErreur = mailError.message;
-    }
-
     return NextResponse.json({
       prospecteur,
       compte: { email, password },
-      email_envoye: emailEnvoye,
-      email_erreur: emailErreur,
     });
   } catch (err) {
     await admin.auth.admin.deleteUser(userId).catch(() => undefined);

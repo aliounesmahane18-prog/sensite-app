@@ -19,7 +19,7 @@ export default function AdminProspecteursPage() {
   const [error, setError] = useState("");
   const [modalOuverte, setModalOuverte] = useState(false);
   const [creation, setCreation] = useState(false);
-  const [cree, setCree] = useState<{ email: string; password: string; emailEnvoye: boolean } | null>(null);
+  const [cree, setCree] = useState<{ email: string; password: string } | null>(null);
   const [nouveau, setNouveau] = useState({
     email: "", nom: "", prenom: "", telephone: "", ville: "", quartier: "",
   });
@@ -59,11 +59,7 @@ export default function AdminProspecteursPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Création impossible.");
 
-      setCree({
-        email: json.compte.email,
-        password: json.compte.password,
-        emailEnvoye: Boolean(json.email_envoye),
-      });
+      setCree({ email: json.compte.email, password: json.compte.password });
       setNouveau({ email: "", nom: "", prenom: "", telephone: "", ville: "", quartier: "" });
       await chargerListe();
     } catch (err) {
@@ -258,18 +254,8 @@ export default function AdminProspecteursPage() {
               <h2 className="font-bold text-lg">✅ Compte créé</h2>
 
               <p className="text-sm text-gray-700">
-                {cree.emailEnvoye ? (
-                  <>
-                    Un email avec le mot de passe temporaire a été envoyé à{" "}
-                    <span className="font-semibold break-all">{cree.email}</span>.
-                  </>
-                ) : (
-                  <>
-                    Le compte est créé, mais <strong>l&apos;email n&apos;a pas pu être envoyé</strong>{" "}
-                    à <span className="font-semibold break-all">{cree.email}</span>. Transmets les
-                    identifiants directement.
-                  </>
-                )}
+                Le compte de <span className="font-semibold break-all">{cree.email}</span> est prêt.
+                Transmets-lui les identifiants ci-dessous — ils ne seront plus jamais affichés.
               </p>
 
               <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-2">

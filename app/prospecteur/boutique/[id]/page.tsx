@@ -7,6 +7,7 @@ import { getSupabase } from "@/lib/supabase";
 import { getProspecteur, getSessionProfile } from "@/lib/session";
 import { ErrorBanner } from "@/components/config-error";
 import ProductForm from "@/components/product-form";
+import LogoUpload from "@/components/logo-upload";
 import { THEME_PRESETS } from "@/lib/themes";
 import { catalogueUrl } from "@/lib/env";
 import type { BoutiqueStatus } from "@/types";
@@ -15,7 +16,7 @@ interface Boutique {
   id: string; name: string; slug: string; description: string | null;
   whatsapp_number: string; ville: string | null; quartier: string | null;
   color_primary: string; color_secondary: string; color_accent: string;
-  theme_preset: string; status: BoutiqueStatus;
+  theme_preset: string; status: BoutiqueStatus; logo_url: string | null;
 }
 
 interface Produit {
@@ -87,7 +88,7 @@ export default function ProspecteurBoutiquePage() {
         // une boutique qui ne lui appartient pas renvoie simplement 0 ligne.
         const { data: b } = await getSupabase()
           .from("boutiques")
-          .select("id, name, slug, description, whatsapp_number, ville, quartier, color_primary, color_secondary, color_accent, theme_preset, status")
+          .select("id, name, slug, description, whatsapp_number, ville, quartier, color_primary, color_secondary, color_accent, theme_preset, status, logo_url")
           .eq("id", boutiqueId)
           .eq("prospecteur_id", fiche.id)
           .maybeSingle();
@@ -223,6 +224,12 @@ export default function ProspecteurBoutiquePage() {
 
         {onglet === "parametres" && (
           <div className="space-y-4">
+            <LogoUpload
+              boutiqueId={boutique.id}
+              logoUrl={boutique.logo_url}
+              onUploaded={(url) => setBoutique({ ...boutique, logo_url: url })}
+            />
+
             <div className="card p-4 space-y-4">
               <h2 className="font-bold text-gray-900">📋 Informations</h2>
               <div>
