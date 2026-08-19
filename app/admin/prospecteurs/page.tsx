@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getSupabase } from "@/lib/supabase";
+import { getAccessToken, getSupabase } from "@/lib/supabase";
 import { getSessionProfile } from "@/lib/session";
 import { isSupabaseConfigured } from "@/lib/env";
 import { ConfigError, ErrorBanner } from "@/components/config-error";
@@ -17,6 +17,61 @@ export default function AdminProspecteursPage() {
   const [lignes, setLignes] = useState<Ligne[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "unconfigured">("loading");
   const [error, setError] = useState("");
+  const [modalOuverte, setModalOuverte] = useState(false);
+  const [creation, setCreation] = useState(false);
+  const [cree, setCree] = useState<{ email: string; password: string; emailEnvoye: boolean } | null>(null);
+  const [nouveau, setNouveau] = useState({
+    email: "", nom: "", prenom: "", telephone: "", ville: "", quartier: "",
+  });
+
+  const chargerListe = async () => {
+    const supabase = getSupabase();
+    const { data: prospecteurs, error: qError } = await supabase
+      .from("prospecteurs").select("*").order("created_at", { ascending: false });
+    if (qError) throw new Error(qError.message);
+
+    const { data: boutiques } = await supabase
+      .from("boutiques").select("prospecteur_id").not("prospecteur_id", "is", null);
+
+    const compte = new Map<string, number>();
+    for (const b of boutiques ?? []) {
+      const key = (b as { prospecteur_id: string }).prospecteur_id;
+      compte.set(key, (compte.get(key) ?? 0) + 1);
+    }
+    setLignes((prospecteurs ?? []).map((p: Prospecteur) => ({
+      ...p, nb_boutiques: compte.get(p.id) ?? 0,
+    })));
+  };
+
+  const creerProspecteur = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setCreation(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) { router.replace("/login"); return; }
+
+      const res = await fetch("/api/admin/create-prospecteur", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(nouveau),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Création impossible.");
+
+      setCree({
+        email: json.compte.email,
+        password: json.compte.password,
+        emailEnvoye: Boolean(json.email_envoye),
+      });
+      setNouveau({ email: "", nom: "", prenom: "", telephone: "", ville: "", quartier: "" });
+      await chargerListe();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Création impossible.");
+    } finally {
+      setCreation(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -32,30 +87,9 @@ export default function AdminProspecteursPage() {
         if (!profile) { router.replace("/login"); return; }
         if (profile.role !== "super_admin") { router.replace("/dashboard"); return; }
 
-        const supabase = getSupabase();
-        const { data: prospecteurs, error: qError } = await supabase
-          .from("prospecteurs")
-          .select("*")
-          .order("created_at", { ascending: false });
-        if (qError) throw new Error(qError.message);
-
         // Une seule requête pour tous les comptages, plutôt qu'une par ligne.
-        const { data: boutiques } = await supabase
-          .from("boutiques")
-          .select("prospecteur_id")
-          .not("prospecteur_id", "is", null);
-
-        const compte = new Map<string, number>();
-        for (const b of boutiques ?? []) {
-          const key = (b as { prospecteur_id: string }).prospecteur_id;
-          compte.set(key, (compte.get(key) ?? 0) + 1);
-        }
-
+        await chargerListe();
         if (cancelled) return;
-        setLignes((prospecteurs ?? []).map((p: Prospecteur) => ({
-          ...p,
-          nb_boutiques: compte.get(p.id) ?? 0,
-        })));
         setState("ready");
       } catch (err) {
         if (cancelled) return;
@@ -122,7 +156,12 @@ export default function AdminProspecteursPage() {
           </span>
         </div>
 
-        <h1 className="section-title">Prospecteurs</h1>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h1 className="section-title">Prospecteurs</h1>
+          <button onClick={() => { setCree(null); setModalOuverte(true); }} className="btn-primary text-sm shrink-0">
+            ＋ Ajouter un prospecteur
+          </button>
+        </div>
 
         {error && <ErrorBanner message={error} />}
 
@@ -204,6 +243,174 @@ export default function AdminProspecteursPage() {
           </div>
         )}
       </div>
+
+      {modalOuverte && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => { if (!creation) { setModalOuverte(false); setCree(null); } }}
+          />
+
+          {cree ? (
+            // Écran de confirmation : le mot de passe n'est affiché qu'une fois,
+            // il n'est stocké en clair nulle part.
+            <div className="relative bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+              <h2 className="font-bold text-lg">✅ Compte créé</h2>
+
+              <p className="text-sm text-gray-700">
+                {cree.emailEnvoye ? (
+                  <>
+                    Un email avec le mot de passe temporaire a été envoyé à{" "}
+                    <span className="font-semibold break-all">{cree.email}</span>.
+                  </>
+                ) : (
+                  <>
+                    Le compte est créé, mais <strong>l&apos;email n&apos;a pas pu être envoyé</strong>{" "}
+                    à <span className="font-semibold break-all">{cree.email}</span>. Transmets les
+                    identifiants directement.
+                  </>
+                )}
+              </p>
+
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-2">
+                <p className="text-sm font-semibold text-orange-800">
+                  🔐 Identifiants — affichés une seule fois
+                </p>
+                <p className="text-sm">
+                  Email : <span className="font-mono break-all">{cree.email}</span>
+                </p>
+                <p className="text-sm">
+                  Mot de passe : <span className="font-mono font-bold">{cree.password}</span>
+                </p>
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      `Bienvenue sur SENsite-APP\n\nConnexion : ${window.location.origin}/login\nEmail : ${cree.email}\nMot de passe : ${cree.password}\n\nPense à changer ton mot de passe.`,
+                    )
+                  }
+                  className="btn-secondary text-sm"
+                >
+                  📋 Copier le message
+                </button>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `Bienvenue sur SENsite-APP\n\nEmail : ${cree.email}\nMot de passe : ${cree.password}`,
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-whatsapp text-sm"
+                >
+                  💬 Envoyer sur WhatsApp
+                </a>
+              </div>
+
+              <p className="text-xs text-gray-500">
+                Le prospecteur apparaît en <strong>Suspendu</strong> : active-le depuis la liste
+                pour qu&apos;il puisse accéder à son espace.
+              </p>
+
+              <button
+                onClick={() => { setModalOuverte(false); setCree(null); }}
+                className="btn-primary w-full"
+              >
+                Terminé
+              </button>
+            </div>
+          ) : (
+            <form
+              onSubmit={creerProspecteur}
+              className="relative bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto"
+            >
+              <h2 className="font-bold text-lg">Nouveau prospecteur</h2>
+
+              {error && <ErrorBanner message={error} />}
+
+              <div>
+                <label className="label" htmlFor="p-email">Email *</label>
+                <input
+                  id="p-email" type="email" required autoComplete="off"
+                  value={nouveau.email}
+                  onChange={e => setNouveau({ ...nouveau, email: e.target.value })}
+                  className="input-field" placeholder="prospecteur@exemple.com"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label" htmlFor="p-nom">Nom *</label>
+                  <input
+                    id="p-nom" type="text" required
+                    value={nouveau.nom}
+                    onChange={e => setNouveau({ ...nouveau, nom: e.target.value })}
+                    className="input-field" placeholder="Diallo"
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="p-prenom">Prénom</label>
+                  <input
+                    id="p-prenom" type="text"
+                    value={nouveau.prenom}
+                    onChange={e => setNouveau({ ...nouveau, prenom: e.target.value })}
+                    className="input-field" placeholder="Fatou"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label" htmlFor="p-tel">Téléphone</label>
+                <input
+                  id="p-tel" type="tel"
+                  value={nouveau.telephone}
+                  onChange={e => setNouveau({ ...nouveau, telephone: e.target.value })}
+                  className="input-field" placeholder="+221 77..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label" htmlFor="p-ville">Ville *</label>
+                  <input
+                    id="p-ville" type="text" required
+                    value={nouveau.ville}
+                    onChange={e => setNouveau({ ...nouveau, ville: e.target.value })}
+                    className="input-field" placeholder="Dakar"
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="p-quartier">Quartier *</label>
+                  <input
+                    id="p-quartier" type="text" required
+                    value={nouveau.quartier}
+                    onChange={e => setNouveau({ ...nouveau, quartier: e.target.value })}
+                    className="input-field" placeholder="Plateau"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500">
+                Le compte est créé <strong>suspendu</strong> : tu devras l&apos;activer
+                manuellement depuis la liste.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setModalOuverte(false)}
+                  className="btn-secondary flex-1"
+                >
+                  Annuler
+                </button>
+                <button type="submit" disabled={creation} className="btn-primary flex-1">
+                  {creation ? "Création..." : "Créer le compte"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
     </div>
   );
 }
