@@ -122,8 +122,8 @@ export default function ProductForm({ boutiqueId, userId, product, onSuccess }: 
           <div onClick={imageUpload.openFilePicker}
             className="border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:border-orange-500 transition-colors overflow-hidden">
             {imageUpload.preview ? (
-              <div className="relative h-52">
-                <Image src={imageUpload.preview} alt="Aperçu" fill className="object-cover" />
+              <div className="relative h-52" style={{ background: "#f5f5f5" }}>
+                <Image src={imageUpload.preview} alt="Aperçu" fill className="object-contain" />
                 <button type="button" onClick={(e) => { e.stopPropagation(); imageUpload.reset(); }}
                   className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md">
                   <X className="w-4 h-4 text-red-500" />

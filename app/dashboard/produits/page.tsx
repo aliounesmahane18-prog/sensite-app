@@ -109,10 +109,12 @@ export default function ProduitsPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {products.map((p) => (
             <div key={p.id} className={`card overflow-hidden ${p.is_available ? "" : "opacity-60"}`}>
-              <div className="h-40 bg-gray-100 flex items-center justify-center">
+              {/* Même cadrage que le catalogue public : le vendeur voit
+                  exactement la photo que verra son client. */}
+              <div className="h-40 flex items-center justify-center" style={{ background: "#f5f5f5" }}>
                 {p.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                  <img src={p.image_url} alt={p.name} className="w-full h-full object-contain" />
                 ) : (
                   <span className="text-4xl">📦</span>
                 )}
