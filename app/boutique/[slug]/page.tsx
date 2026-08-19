@@ -319,10 +319,14 @@ export default function CataloguePage() {
             {visibleProducts.map(p => (
               <div key={p.id} className="rounded-2xl overflow-hidden shadow-sm border"
                 style={{ background: "white", borderColor: `${primary}22` }}>
-                <div className="relative w-full h-[200px]" style={{ background: `${secondary}11` }}>
+                {/* `relative` est indispensable : <Image fill> se positionne sur
+                    le premier ancêtre positionné. Hauteur fixe + overflow-hidden
+                    de la carte : l'image ne peut pas déborder. */}
+                <div className="relative w-full h-48 overflow-hidden rounded-t-2xl"
+                  style={{ background: "#f5f5f5" }}>
                   {p.image_url ? (
-                    // 2 colonnes sur mobile, 2 x 320px max sur la grille centrée
-                    <Image src={p.image_url} alt={p.name} fill sizes="(max-width: 640px) 50vw, 320px"
+                    <Image src={p.image_url} alt={p.name} fill
+                      sizes="(max-width: 768px) 50vw, 33vw"
                       className="object-cover object-center" />
                   ) : (
                     <div className="flex items-center justify-center h-full text-4xl text-gray-300">📦</div>
