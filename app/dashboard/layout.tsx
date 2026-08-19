@@ -67,8 +67,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="p-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
               {boutique.logo_url ? (
-                <Image src={boutique.logo_url} alt={boutique.name} width={36} height={36}
-                  className="rounded-xl object-cover border border-gray-100" />
+                // `contain` sur fond neutre : le logo n'est pas rogné.
+                <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-gray-100 shrink-0"
+                  style={{ background: "#f5f5f5" }}>
+                  <Image src={boutique.logo_url} alt={boutique.name} fill sizes="36px"
+                    className="object-contain" />
+                </div>
               ) : (
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold"
                   style={{ background: boutique.color_primary }}>

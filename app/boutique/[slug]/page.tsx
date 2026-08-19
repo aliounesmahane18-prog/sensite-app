@@ -211,10 +211,15 @@ export default function CataloguePage() {
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {boutique.logo_url ? (
-              <Image src={boutique.logo_url} alt={boutique.name} width={44} height={44}
-                className="rounded-xl object-cover border-2 border-white/30" />
+              // `contain` sur fond neutre : un logo n'est jamais rogné, et la
+              // transparence ne laisse pas voir la couleur du header.
+              <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-white/30 shrink-0"
+                style={{ background: "#f5f5f5" }}>
+                <Image src={boutique.logo_url} alt={boutique.name} fill sizes="64px"
+                  className="object-contain" />
+              </div>
             ) : (
-              <div className="w-11 h-11 rounded-xl bg-white/20 border-2 border-white/30 flex items-center justify-center font-bold text-white">
+              <div className="w-16 h-16 rounded-2xl bg-white/20 border-2 border-white/30 flex items-center justify-center font-bold text-white text-lg shrink-0">
                 {boutique.name.slice(0, 2).toUpperCase()}
               </div>
             )}
@@ -314,11 +319,13 @@ export default function CataloguePage() {
             {visibleProducts.map(p => (
               <div key={p.id} className="rounded-2xl overflow-hidden shadow-sm border"
                 style={{ background: "white", borderColor: `${primary}22` }}>
-                <div className="h-40 relative" style={{ background: `${secondary}11` }}>
+                <div className="relative w-full h-[200px]" style={{ background: `${secondary}11` }}>
                   {p.image_url ? (
-                    <Image src={p.image_url} alt={p.name} fill className="object-cover" />
+                    // 2 colonnes sur mobile, 2 x 320px max sur la grille centrée
+                    <Image src={p.image_url} alt={p.name} fill sizes="(max-width: 640px) 50vw, 320px"
+                      className="object-cover object-center" />
                   ) : (
-                    <div className="flex items-center justify-center h-full text-4xl">📦</div>
+                    <div className="flex items-center justify-center h-full text-4xl text-gray-300">📦</div>
                   )}
                   {p.is_featured && (
                     <span className="absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full"
@@ -377,7 +384,7 @@ export default function CataloguePage() {
             <div className="flex items-start gap-3">
               {selectedProduct.image_url && (
                 <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0">
-                  <Image src={selectedProduct.image_url} alt={selectedProduct.name} fill className="object-cover" />
+                  <Image src={selectedProduct.image_url} alt={selectedProduct.name} fill sizes="64px" className="object-cover object-center" />
                 </div>
               )}
               <div>

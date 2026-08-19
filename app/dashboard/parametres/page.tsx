@@ -148,10 +148,11 @@ export default function ParametresPage() {
           <h2 className="font-bold text-gray-800 mb-3">🖼️ Logo</h2>
           <div className="flex items-center gap-4">
             <div onClick={logoUpload.openFilePicker}
-              className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 hover:border-orange-500 cursor-pointer transition-colors bg-gray-50 flex items-center justify-center">
+              className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 hover:border-orange-500 cursor-pointer transition-colors flex items-center justify-center"
+              style={{ background: "#f5f5f5" }}>
               {logoUpload.preview ? (
                 <>
-                  <Image src={logoUpload.preview} alt="Logo" fill className="object-cover" />
+                  <Image src={logoUpload.preview} alt="Logo" fill sizes="80px" className="object-contain" />
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                     <Camera className="w-5 h-5 text-white" />
                   </div>
