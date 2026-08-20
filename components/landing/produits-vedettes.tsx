@@ -18,10 +18,10 @@ export default function ProduitsVedettes({ produits }: Props) {
   if (produits.length === 0) return null;
 
   return (
-    <section id="produits" className="scroll-mt-16 py-14 bg-gray-50">
+    <section id="produits" className="scroll-mt-16 py-14 bg-slate-900">
       <div className="max-w-6xl mx-auto px-4">
-        <h2 className="text-3xl font-bold text-gray-900 text-center">Produits Vedettes</h2>
-        <p className="text-gray-500 text-center mt-2">
+        <h2 className="text-3xl font-bold text-white text-center">Produits Vedettes</h2>
+        <p className="text-white/80 text-center mt-2">
           La sélection du moment, commandée directement sur WhatsApp
         </p>
 
@@ -29,7 +29,9 @@ export default function ProduitsVedettes({ produits }: Props) {
           {produits.map((p) => (
             <div
               key={p.id}
-              className="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col transition-shadow hover:shadow-lg"
+              // Ombre au repos : sur fond bleu nuit, une carte sans relief
+              // paraît collée au fond.
+              className="bg-white rounded-2xl shadow-md overflow-hidden flex flex-col transition-shadow hover:shadow-xl"
             >
               {/* Même cadrage que le catalogue d'une boutique : hauteur fixe,
                   `contain` sur fond neutre, la photo n'est jamais coupée. */}

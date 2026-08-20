@@ -5,6 +5,8 @@ import Link from "next/link";
 import type { BanniereLanding } from "@/lib/landing";
 
 const DELAI_MS = 4000;
+/** Fond du bandeau : `contain` laisse des marges, elles doivent être assumées. */
+const FOND = "#1a1a2e";
 
 interface Props {
   bannieres: BanniereLanding[];
@@ -58,7 +60,8 @@ export default function CarouselBannieres({ bannieres }: Props) {
 
   return (
     <section
-      className="relative w-full overflow-hidden bg-gray-100 h-[150px] sm:h-[220px]"
+      className="relative w-full overflow-hidden h-[160px] sm:h-[240px]"
+      style={{ background: FOND }}
       onMouseEnter={() => setEnPause(true)}
       onMouseLeave={() => setEnPause(false)}
       onFocusCapture={() => setEnPause(true)}
@@ -74,10 +77,12 @@ export default function CarouselBannieres({ bannieres }: Props) {
           const lien = destination(b);
           const contenu = (
             <>
-              {/* Le dégradé est TOUJOURS posé en premier, sous l'image. Une
-                  bannière sans visuel — ou dont l'image ne se charge pas —
-                  reste ainsi lisible : fond coloré, titre et sous-titre. */}
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500 via-orange-400 to-amber-300" />
+              {/* Bannière sans visuel : dégradé orange plutôt qu'un bandeau
+                  sombre vide. Avec une image, le fond reste le bleu nuit du
+                  conteneur, visible dans les marges laissées par `contain`. */}
+              {!b.image_url && (
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500 via-orange-400 to-amber-300" />
+              )}
               {b.image_url && (
                 <Image
                   src={b.image_url}
@@ -85,14 +90,14 @@ export default function CarouselBannieres({ bannieres }: Props) {
                   fill
                   sizes="100vw"
                   priority={i === 0}
-                  className="object-cover object-center"
+                  className="object-contain object-center"
                 />
               )}
 
               {/* Voile sombre uniquement s'il y a du texte à rendre lisible :
                   assombrir une bannière purement visuelle n'apporterait rien. */}
               {(b.titre || b.sous_titre) && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 bg-black/30">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 bg-black/40">
                   {b.titre && (
                     <p className="text-white font-bold text-base sm:text-xl drop-shadow">{b.titre}</p>
                   )}

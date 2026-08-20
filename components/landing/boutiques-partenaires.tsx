@@ -31,7 +31,7 @@ export default function BoutiquesPartenaires({ boutiques }: Props) {
   );
 
   return (
-    <section id="boutiques" className="scroll-mt-16 py-14 bg-white">
+    <section id="boutiques" className="scroll-mt-16 py-14 bg-sky-100">
       <div className="max-w-6xl mx-auto px-4">
         <h2 className="text-3xl font-bold text-gray-900 text-center">Nos Boutiques Partenaires</h2>
         <p className="text-gray-500 text-center mt-2">
