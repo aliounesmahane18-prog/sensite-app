@@ -55,7 +55,8 @@ export default function FormulaireContact({ numeroContact }: Props) {
   const [nom, setNom] = useState("");
   const [tel, setTel] = useState("");
   const [secteur, setSecteur] = useState<string>(SECTEURS[0][0]);
-  const [doublon, setDoublon] = useState(false);
+  const [dejaUtilise, setDejaUtilise] = useState(false);
+  const [vientDEnvoyer, setVientDEnvoyer] = useState(false);
   const [confirme, setConfirme] = useState(false);
   const minuterie = useRef<number | null>(null);
 
@@ -64,38 +65,71 @@ export default function FormulaireContact({ numeroContact }: Props) {
     if (minuterie.current !== null) window.clearTimeout(minuterie.current);
   }, []);
 
+  /**
+   * Vérification du doublon à chaque frappe.
+   *
+   * Dans un effet et non pendant le rendu : `localStorage` n'existe pas sur
+   * le serveur, et le lire au rendu ferait diverger le HTML serveur du
+   * premier rendu navigateur (erreur d'hydratation). L'effet ne s'exécute
+   * que côté navigateur, après le rendu initial.
+   */
+  useEffect(() => {
+    const cle = numeroWhatsapp(tel);
+    setDejaUtilise(cle.length > 0 && numerosEnvoyes().includes(cle));
+  }, [tel]);
+
   const numero = contactWhatsapp(numeroContact);
   const complet = nom.trim().length > 1 && tel.trim().length > 5;
 
-  const libelle = SECTEURS.find(([cle]) => cle === secteur)?.[1] ?? secteur;
-  const message = `Bonjour, je souhaite ouvrir ma boutique sur SENsite-APP. Nom: ${nom.trim()}, Téléphone: ${tel.trim()}, Secteur: ${libelle}`;
-  const lien = `https://wa.me/${numero}?text=${encodeURIComponent(message)}`;
+  /**
+   * Demande déjà partie : soit le numéro saisi figure dans le stockage, soit
+   * l'envoi vient d'avoir lieu (le formulaire est alors vide, donc le premier
+   * test ne suffirait pas). Reprendre la main se fait en saisissant un autre
+   * numéro.
+   */
+  const bloque = dejaUtilise || vientDEnvoyer;
 
   const envoyer = () => {
+    // 1. Champs obligatoires
     if (!complet) return;
 
-    // On compare des chiffres, pas du texte : « 77 123 45 67 » et
-    // « 771234567 » sont le même numéro, et sans cette normalisation
-    // l'anti-doublon se contournerait avec une espace.
+    // 2. On compare des chiffres, pas du texte : « 77 123 45 67 » et
+    //    « 771234567 » sont le même numéro, et sans cette normalisation
+    //    l'anti-doublon se contournerait avec une espace.
     const cle = numeroWhatsapp(tel);
 
+    // 3. et 4. Doublon : le bouton est déjà désactivé dans ce cas, ce test
+    //    reste la dernière barrière (clic au clavier, état non encore
+    //    recalculé, stockage modifié dans un autre onglet).
     if (numerosEnvoyes().includes(cle)) {
-      setDoublon(true);
+      setDejaUtilise(true);
       setConfirme(false);
       return;
     }
 
-    // Ouvert depuis le clic : c'est ce qui autorise le navigateur à ne pas
-    // bloquer l'onglet.
-    window.open(lien, "_blank", "noopener,noreferrer");
+    // 5. Le lien est construit AVANT la remise à zéro : après, les champs
+    //    sont vides.
+    const libelle = SECTEURS.find(([c]) => c === secteur)?.[1] ?? secteur;
+    const message = `Bonjour, je souhaite ouvrir ma boutique sur SENsite-APP. Nom: ${nom.trim()}, Téléphone: ${tel.trim()}, Secteur: ${libelle}`;
+    const lien = `https://wa.me/${numero}?text=${encodeURIComponent(message)}`;
+
+    // 6. Mémorisation
     memoriserNumero(cle);
 
+    // 7. et 8. Remise à zéro et confirmation AVANT l'ouverture de WhatsApp :
+    //    sur mobile, `window.open` bascule vers l'application et peut
+    //    suspendre la page avant que React ait eu le temps de re-rendre.
     setNom("");
     setTel("");
     setSecteur(SECTEURS[0][0]);
-    setDoublon(false);
+    setVientDEnvoyer(true);
     setConfirme(true);
 
+    // 9. Ouvert depuis le clic : c'est ce qui autorise le navigateur à ne
+    //    pas bloquer l'onglet.
+    window.open(lien, "_blank", "noopener,noreferrer");
+
+    // 10. La confirmation s'efface d'elle-même.
     if (minuterie.current !== null) window.clearTimeout(minuterie.current);
     minuterie.current = window.setTimeout(() => setConfirme(false), DUREE_CONFIRMATION_MS);
   };
@@ -131,9 +165,10 @@ export default function FormulaireContact({ numeroContact }: Props) {
               type="tel"
               inputMode="tel"
               value={tel}
-              // Changer de numéro efface l'avertissement de doublon, qui ne
-              // concernait que le numéro précédent.
-              onChange={(e) => { setTel(e.target.value); setDoublon(false); }}
+              // Saisir un numéro rend la main : l'état « vient d'envoyer »
+              // concernait la demande précédente. Le doublon, lui, est
+              // recalculé par l'effet à chaque frappe.
+              onChange={(e) => { setTel(e.target.value); setVientDEnvoyer(false); }}
               placeholder="77 123 45 67"
               className="input-field"
             />
@@ -158,19 +193,30 @@ export default function FormulaireContact({ numeroContact }: Props) {
           </div>
 
           {/* Un bouton, plus un lien : il y a des vérifications à faire avant
-              d'ouvrir WhatsApp, et le formulaire doit être vidé ensuite. */}
+              d'ouvrir WhatsApp, et le formulaire doit être vidé ensuite.
+              Trois états : gris et verrouillé si la demande est déjà partie,
+              vert atténué tant que le formulaire est incomplet, vert franc
+              quand il est prêt. */}
           <button
             type="button"
             onClick={envoyer}
-            disabled={!complet}
-            className={`btn-whatsapp w-full text-center ${
-              complet ? "" : "opacity-50 cursor-not-allowed"
-            }`}
+            disabled={bloque || !complet}
+            // Tout passe par des classes, sans style inline : bg-gray-400
+            // vaut exactement #9ca3af et opacity-70 exactement 0.7.
+            // Le changement de couleur suit la transition de .btn-whatsapp
+            // (150 ms), il n'est donc pas instantané à l'œil.
+            className={
+              bloque
+                ? "w-full text-center font-bold px-5 py-3 rounded-2xl text-white bg-gray-400 opacity-70 cursor-not-allowed"
+                : `btn-whatsapp w-full text-center ${complet ? "" : "opacity-50 cursor-not-allowed"}`
+            }
           >
-            💬 Nous contacter sur WhatsApp
+            {bloque ? "Demande déjà envoyée ✓" : "💬 Nous contacter sur WhatsApp"}
           </button>
 
-          {doublon && (
+          {/* Le bouton étant verrouillé, le visiteur ne peut plus cliquer pour
+              comprendre pourquoi : le message doit apparaître de lui-même. */}
+          {dejaUtilise && (
             <p
               role="status"
               className="text-sm text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3"
@@ -191,7 +237,7 @@ export default function FormulaireContact({ numeroContact }: Props) {
 
           {/* Masqué pendant la confirmation : le formulaire vient d'être vidé,
               rappeler de le remplir juste après un envoi réussi est absurde. */}
-          {!complet && !confirme && !doublon && (
+          {!complet && !confirme && !bloque && (
             <p className="text-xs text-gray-400 text-center">
               Renseigne ton nom et ton téléphone pour continuer.
             </p>
