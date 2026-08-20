@@ -1,49 +1,135 @@
 import Link from "next/link";
+import CarouselBannieres from "@/components/landing/carousel-bannieres";
+import BoutiquesPartenaires from "@/components/landing/boutiques-partenaires";
+import ProduitsVedettes from "@/components/landing/produits-vedettes";
+import FormulaireContact from "@/components/landing/formulaire-contact";
+import { getBannieres, getBoutiques, getProduitsVedettes } from "@/lib/landing";
 
-export default function HomePage() {
+/**
+ * Page d'accueil : le « centre commercial numérique ».
+ *
+ * Rendue à chaque requête (`force-dynamic`) plutôt que pré-générée : les
+ * boutiques, produits vedettes et bannières changent depuis l'admin et
+ * doivent apparaître sans redéploiement. C'est aussi ce qui permet au build
+ * de passer sans aucune variable d'environnement.
+ */
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  // En parallèle : trois requêtes indépendantes, une seule attente.
+  const [bannieres, boutiques, produits] = await Promise.all([
+    getBannieres(),
+    getBoutiques(),
+    getProduitsVedettes(12),
+  ]);
+
+  const numeroContact = process.env.NEXT_PUBLIC_WHATSAPP_CONTACT || "";
+
   return (
     <main className="min-h-screen bg-white">
-      <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 px-4 h-16 flex items-center justify-between">
-        <span className="font-bold text-xl">SENsite<span className="text-orange-500">APP</span></span>
-        <Link href="/login" className="btn-primary text-sm">Connexion boutique</Link>
-      </nav>
-      <section className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-5xl font-bold text-gray-900 mb-6">
-          Ta boutique en ligne,{" "}
-          <span className="text-orange-500">tes commandes sur WhatsApp</span> 📲
-        </h1>
-        <p className="text-xl text-gray-600 mb-8">
-          SENsite-APP donne à chaque boutique de Dakar son catalogue en ligne partageable.
-          Les clients commandent, toi tu reçois directement sur WhatsApp.
-        </p>
-        <div className="flex gap-4 justify-center flex-wrap">
-          <a href="https://wa.me/221767263361?text=Bonjour%20SENsite-APP%2C%20je%20veux%20créer%20ma%20boutique%20en%20ligne" target="_blank"
-            className="btn-whatsapp text-base px-8 py-4">
-            📲 Commander ma boutique
-          </a>
-          <Link href="/login" className="btn-secondary text-base px-8 py-4">
-            Gérer ma boutique →
+      {/* ============ EN-TÊTE ============ */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-100 shadow-sm">
+        <nav className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+          <Link href="/" className="font-bold text-xl shrink-0">
+            SENsite<span className="text-orange-500">APP</span>
           </Link>
+
+          <div className="flex items-center gap-2 sm:gap-4">
+            <a
+              href="#boutiques"
+              className="hidden sm:block text-sm font-medium text-gray-600 hover:text-orange-500 transition-colors"
+            >
+              Nos boutiques
+            </a>
+            <a
+              href="#produits"
+              className="hidden sm:block text-sm font-medium text-gray-600 hover:text-orange-500 transition-colors"
+            >
+              Produits
+            </a>
+            {/* Le libellé complet passe sur deux lignes sous 400px : on garde
+                le verbe seul, l'intention reste claire à côté de « Connexion ». */}
+            <a href="#contact" className="btn-primary text-xs sm:text-sm py-2 whitespace-nowrap">
+              <span className="sm:hidden">Commander</span>
+              <span className="hidden sm:inline">Commander une boutique</span>
+            </a>
+            <Link href="/login" className="btn-secondary text-xs sm:text-sm py-2 whitespace-nowrap">
+              Connexion
+            </Link>
+          </div>
+        </nav>
+      </header>
+
+      {/* ============ HERO ============ */}
+      <section className="bg-gradient-to-b from-orange-50 via-amber-50 to-white">
+        <div className="max-w-4xl mx-auto px-4 py-16 sm:py-20 text-center">
+          <p className="text-4xl mb-4" aria-hidden="true">
+            🏬 🛍️ 📲
+          </p>
+          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight">
+            Votre <span className="text-orange-500">Centre Commercial Numérique</span>
+          </h1>
+          <p className="text-lg sm:text-xl text-gray-600 mt-5 max-w-2xl mx-auto">
+            Commandez en boutique, achetez vos produits préférés, tout via WhatsApp.
+          </p>
+          <div className="flex gap-3 justify-center flex-wrap mt-8">
+            <a href="#boutiques" className="btn-primary text-base px-8 py-3.5">
+              Voir les boutiques
+            </a>
+            <a href="#contact" className="btn-secondary text-base px-8 py-3.5">
+              Commander une boutique
+            </a>
+          </div>
         </div>
       </section>
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-5xl mx-auto px-4 grid sm:grid-cols-3 gap-6">
-          {[
-            { emoji: "📞", title: "Tu contactes Ali.IA", desc: "On crée ton compte et ton lien URL unique." },
-            { emoji: "📸", title: "Tu ajoutes tes produits", desc: "Photos, noms, prix. Simple comme envoyer une story." },
-            { emoji: "💬", title: "Les clients commandent", desc: "Ils voient ton catalogue et la commande arrive sur WhatsApp." },
-          ].map((item) => (
-            <div key={item.title} className="card p-6 text-center">
-              <div className="text-4xl mb-3">{item.emoji}</div>
-              <h3 className="font-bold text-lg mb-2">{item.title}</h3>
-              <p className="text-gray-500 text-sm">{item.desc}</p>
-            </div>
-          ))}
+
+      {/* ============ CARROUSEL ============ */}
+      <CarouselBannieres bannieres={bannieres} />
+
+      {/* ============ BOUTIQUES ============ */}
+      <BoutiquesPartenaires boutiques={boutiques} />
+
+      {/* ============ PRODUITS VEDETTES ============ */}
+      <ProduitsVedettes produits={produits} />
+
+      {/* ============ CONTACT ============ */}
+      <FormulaireContact numeroContact={numeroContact} />
+
+      {/* ============ PIED DE PAGE ============ */}
+      <footer className="bg-gray-900 text-white py-10">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
+          <div>
+            <p className="font-bold text-lg">
+              SENsite<span className="text-orange-500">APP</span>
+            </p>
+            <p className="text-gray-400 text-sm mt-1">
+              Toutes les boutiques de Dakar, à portée de WhatsApp.
+            </p>
+          </div>
+
+          <div className="flex gap-5 text-sm">
+            <a href="#boutiques" className="text-gray-300 hover:text-orange-400 transition-colors">
+              Boutiques
+            </a>
+            <Link href="/login" className="text-gray-300 hover:text-orange-400 transition-colors">
+              Connexion
+            </Link>
+            {numeroContact && (
+              <a
+                href={`https://wa.me/${numeroContact.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-300 hover:text-green-400 transition-colors"
+              >
+                WhatsApp
+              </a>
+            )}
+          </div>
         </div>
-      </section>
-      <footer className="bg-gray-900 text-white py-8 text-center">
-        <p className="font-bold mb-1">SENsite<span className="text-orange-500">APP</span></p>
-        <p className="text-gray-400 text-sm">Développé par <span className="text-orange-400">Ali.IA Solutions</span> — Dakar 🇸🇳</p>
+
+        <p className="text-gray-500 text-xs text-center mt-8">
+          © 2026 SENsite-APP — Ali.IA Solutions
+        </p>
       </footer>
     </main>
   );

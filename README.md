@@ -94,7 +94,14 @@ Ajouter dans Vercel Dashboard → **Environment Variables** :
 | `NEXT_PUBLIC_SUPABASE_URL` | ❌ **non** | URL du projet, lue par le navigateur |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ❌ **non** | Clé publique, protégée par RLS |
 | `NEXT_PUBLIC_APP_URL` | ❌ non | `https://ton-app.vercel.app` |
+| `NEXT_PUBLIC_WHATSAPP_CONTACT` | ❌ non | Numéro WhatsApp de contact, ex. `221771234567` |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ oui | Clé secrète, serveur uniquement |
+
+`NEXT_PUBLIC_WHATSAPP_CONTACT` alimente le formulaire « Ouvrez votre boutique »
+de la page d'accueil et le lien WhatsApp du pied de page. Chiffres uniquement,
+indicatif pays compris, sans `+` ni espaces. En local, l'ajouter à `.env.local`
+(voir `.env.example`). Si la variable est absente, le formulaire reste affiché
+mais indique que le numéro n'est pas configuré — aucune page ne casse.
 
 > ⚠️ **Ne coche pas « Sensitive » sur les variables `NEXT_PUBLIC_*`.**
 > Une variable *Sensitive* n'est pas lisible pendant le build : Next.js ne peut
