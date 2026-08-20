@@ -9,6 +9,7 @@ import { ConfigError, ErrorBanner } from "@/components/config-error";
 import { formatFcfa, getErrorMessage } from "@/lib/utils";
 import FacturationPanel from "@/components/facturation-panel";
 import { echeance, montantLisible, type Facturation } from "@/lib/facturation";
+import AdminTabs from "@/components/admin-tabs";
 
 interface Boutique {
   id: string;
@@ -163,17 +164,7 @@ export default function AdminPage() {
       </nav>
 
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        <div className="flex gap-2">
-          <span className="px-4 py-2 rounded-xl text-sm font-semibold bg-orange-500 text-white">
-            🏪 Boutiques
-          </span>
-          <Link
-            href="/admin/prospecteurs"
-            className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-600 hover:border-orange-300 transition-colors"
-          >
-            🧑🏾‍💼 Prospecteurs
-          </Link>
-        </div>
+        <AdminTabs />
 
         <h1 className="section-title">Gestion des boutiques</h1>
 

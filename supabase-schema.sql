@@ -425,3 +425,50 @@ ALTER TABLE boutiques
 -- mentir sur l'auteur de la modification.
 -- Le trigger est nommé « stamp » pour s'exécuter APRÈS « protect » (ordre
 -- alphabétique) : une valeur rétablie ne doit pas compter comme modification.
+
+-- ============================================
+-- LANDING PAGE : BANNIÈRES ET BOUTIQUES VEDETTES
+-- ============================================
+ALTER TABLE boutiques
+  ADD COLUMN IF NOT EXISTS banner_url TEXT,
+  ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- is_featured est un argument commercial : il figure dans les colonnes
+-- rétablies par protect_boutique_admin_fields(). Sans cela, un gérant ou un
+-- prospecteur mettait sa propre boutique en avant sur la page d'accueil par
+-- un simple UPDATE.
+
+CREATE TABLE bannieres_landing (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  titre       TEXT,
+  sous_titre  TEXT,
+  image_url   TEXT NOT NULL,
+  boutique_id UUID REFERENCES boutiques(id) ON DELETE SET NULL,
+  lien_url    TEXT,
+  ordre       INT NOT NULL DEFAULT 0,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Index partiel calé sur la seule requête de la landing.
+CREATE INDEX bannieres_landing_actives_idx ON bannieres_landing (ordre) WHERE is_active;
+
+ALTER TABLE bannieres_landing ENABLE ROW LEVEL SECURITY;
+
+-- Lecture publique limitée aux bannières ACTIVES : une bannière désactivée
+-- est un brouillon et ne doit pas être lisible par un visiteur. Le super
+-- admin, lui, voit tout via sa policy ALL (les policies SELECT s'additionnent).
+CREATE POLICY bannieres_landing_public_read ON bannieres_landing
+  FOR SELECT USING (is_active = TRUE);
+
+CREATE POLICY bannieres_landing_superadmin_all ON bannieres_landing
+  FOR ALL
+  USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'super_admin')
+  WITH CHECK ((SELECT role FROM profiles WHERE id = auth.uid()) = 'super_admin');
+
+-- Le bucket boutique-banners est public : l'URL /object/public/ ne passe pas
+-- par les RLS. Cette policy aligne le chemin authentifié sur celui des logos.
+CREATE POLICY public_read_banners ON storage.objects
+  FOR SELECT USING (bucket_id = 'boutique-banners');
+-- L'écriture dans boutique-banners est déjà couverte par la policy
+-- product_images_superadmin_all, qui liste les trois buckets.

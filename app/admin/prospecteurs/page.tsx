@@ -7,6 +7,7 @@ import { getSessionProfile } from "@/lib/session";
 import { isSupabaseConfigured } from "@/lib/env";
 import { ConfigError, ErrorBanner } from "@/components/config-error";
 import type { Prospecteur } from "@/types";
+import AdminTabs from "@/components/admin-tabs";
 
 interface Ligne extends Prospecteur {
   nb_boutiques: number;
@@ -142,15 +143,7 @@ export default function AdminProspecteursPage() {
       </nav>
 
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        <div className="flex gap-2">
-          <Link href="/admin"
-            className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-600 hover:border-orange-300 transition-colors">
-            🏪 Boutiques
-          </Link>
-          <span className="px-4 py-2 rounded-xl text-sm font-semibold bg-orange-500 text-white">
-            🧑🏾‍💼 Prospecteurs
-          </span>
-        </div>
+        <AdminTabs />
 
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="section-title">Prospecteurs</h1>
