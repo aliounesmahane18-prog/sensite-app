@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
 import { CATEGORY_ICONS } from "@/lib/themes";
 
@@ -204,6 +205,21 @@ export default function CataloguePage() {
           background: `radial-gradient(ellipse at 50% 0%, ${primary}08 0%, transparent 70%)`,
         }} />
       </div>
+
+      {/* ── RETOUR VERS L'ACCUEIL ──
+          Volontairement hors du bloc collant : elle défile avec la page et
+          laisse la recherche se coller en haut. `min-h-[44px]` est la taille
+          de cible tactile recommandée, le catalogue se consulte au pouce. */}
+      <nav className="relative z-20 bg-white border-b border-gray-100">
+        <div className="max-w-2xl mx-auto px-1">
+          <Link
+            href="/#boutiques"
+            className="inline-flex items-center gap-1.5 min-h-[44px] py-2 px-4 text-sm font-medium text-gray-700 hover:text-orange-500 transition-colors"
+          >
+            <span aria-hidden="true">←</span> Accueil
+          </Link>
+        </div>
+      </nav>
 
       {/* ── HEADER + ONGLETS (collés ensemble au scroll) ── */}
       <div className="sticky top-0 z-30 shadow-lg">

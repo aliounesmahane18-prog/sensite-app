@@ -8,6 +8,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { ConfigError, ErrorBanner } from "@/components/config-error";
 import { slugify } from "@/lib/utils";
 import type { BoutiqueStatus, Prospecteur } from "@/types";
+import { SECTEURS } from "@/lib/secteurs";
 
 interface BoutiqueRow {
   id: string;
@@ -25,14 +26,9 @@ const STATUS_BADGE: Record<BoutiqueStatus, { label: string; className: string }>
   suspended: { label: "Suspendue", className: "bg-red-100 text-red-700" },
 };
 
-const CATEGORIES: [string, string][] = [
-  ["pret_a_porter", "Prêt-à-porter"],
-  ["electromenager", "Électroménager"],
-  ["bazar", "Bazar"],
-  ["quincaillerie", "Quincaillerie"],
-  ["bijouterie", "Bijouterie"],
-  ["autre", "Autre"],
-];
+// Liste unique : voir lib/secteurs.ts (alignée sur la contrainte CHECK
+// de boutiques.category).
+const CATEGORIES = SECTEURS;
 
 type Etat = "chargement" | "pret" | "suspendu" | "interdit" | "non-configure";
 

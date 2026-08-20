@@ -4,17 +4,13 @@ import { requireSuperAdmin } from "@/lib/api-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getErrorMessage, slugify } from "@/lib/utils";
 import type { BoutiqueCategory } from "@/types";
+import { CLES_SECTEURS } from "@/lib/secteurs";
 
 export const dynamic = "force-dynamic";
 
-const CATEGORIES: BoutiqueCategory[] = [
-  "pret_a_porter",
-  "electromenager",
-  "bazar",
-  "quincaillerie",
-  "bijouterie",
-  "autre",
-];
+// Liste partagée avec les formulaires : une seule définition à faire évoluer,
+// et elle est alignée sur la contrainte CHECK de la base.
+const CATEGORIES = CLES_SECTEURS as BoutiqueCategory[];
 
 function generatePassword(): string {
   // Alphabet sans caractères ambigus (0/O, 1/l/I) : le mot de passe est

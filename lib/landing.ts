@@ -1,4 +1,5 @@
 import { getSupabasePublicServer } from "@/lib/supabase-server";
+import { numeroWhatsapp } from "@/lib/whatsapp";
 
 /**
  * Données de la page d'accueil, lues côté serveur avec la clé anon.
@@ -195,11 +196,6 @@ export async function getProduitsVedettes(limite = 12): Promise<ProduitVedette[]
     ...vedettes,
     ...lignesBrutes(autres).map(versProduitVedette).filter((p): p is ProduitVedette => p !== null),
   ].slice(0, limite);
-}
-
-/** Numéro WhatsApp au format attendu par wa.me : chiffres uniquement. */
-export function numeroWhatsapp(brut: string): string {
-  return brut.replace(/\D/g, "");
 }
 
 /** Lien de commande d'un produit, message déjà rédigé pour le client. */

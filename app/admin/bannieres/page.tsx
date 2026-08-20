@@ -434,8 +434,10 @@ export default function AdminBannieresPage() {
                 )}
               </div>
               <p className="text-xs text-gray-400 mt-1">
-                Format conseillé : 1600×600 px. L&apos;image est recadrée en 300 px de haut
-                (200 px sur mobile).
+                Format conseillé : <strong>1600×440 px</strong> (bandeau large).
+                L&apos;image remplit toute la largeur sur 220 px de haut (150 px sur
+                mobile) : une photo au format classique sera rognée en haut et en
+                bas, garde donc l&apos;essentiel au centre.
               </p>
               <input
                 ref={fileRef}

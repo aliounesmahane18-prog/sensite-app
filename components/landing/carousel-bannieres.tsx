@@ -58,7 +58,7 @@ export default function CarouselBannieres({ bannieres }: Props) {
 
   return (
     <section
-      className="relative w-full overflow-hidden bg-gray-100 h-[200px] sm:h-[300px]"
+      className="relative w-full overflow-hidden bg-gray-100 h-[150px] sm:h-[220px]"
       onMouseEnter={() => setEnPause(true)}
       onMouseLeave={() => setEnPause(false)}
       onFocusCapture={() => setEnPause(true)}
@@ -89,13 +89,15 @@ export default function CarouselBannieres({ bannieres }: Props) {
                 />
               )}
 
+              {/* Voile sombre uniquement s'il y a du texte à rendre lisible :
+                  assombrir une bannière purement visuelle n'apporterait rien. */}
               {(b.titre || b.sous_titre) && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 bg-black/35">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 bg-black/30">
                   {b.titre && (
-                    <p className="text-white font-bold text-2xl sm:text-4xl drop-shadow">{b.titre}</p>
+                    <p className="text-white font-bold text-base sm:text-xl drop-shadow">{b.titre}</p>
                   )}
                   {b.sous_titre && (
-                    <p className="text-white/90 text-sm sm:text-lg mt-2 max-w-2xl">{b.sous_titre}</p>
+                    <p className="text-white/80 text-sm mt-1 max-w-2xl">{b.sous_titre}</p>
                   )}
                 </div>
               )}

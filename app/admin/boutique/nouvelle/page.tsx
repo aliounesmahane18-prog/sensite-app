@@ -6,15 +6,11 @@ import { getAccessToken } from "@/lib/supabase";
 import { catalogueUrl } from "@/lib/env";
 import { ErrorBanner } from "@/components/config-error";
 import { getErrorMessage, slugify } from "@/lib/utils";
+import { SECTEURS } from "@/lib/secteurs";
 
-const CATEGORIES: [string, string][] = [
-  ["pret_a_porter", "Prêt-à-porter"],
-  ["electromenager", "Électroménager"],
-  ["bazar", "Bazar"],
-  ["quincaillerie", "Quincaillerie"],
-  ["bijouterie", "Bijouterie"],
-  ["autre", "Autre"],
-];
+// Liste unique : voir lib/secteurs.ts (alignée sur la contrainte CHECK
+// de boutiques.category).
+const CATEGORIES = SECTEURS;
 
 interface CreatedBoutique {
   slug: string;

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { SECTEURS } from "@/lib/secteurs";
-import { numeroWhatsapp } from "@/lib/landing";
+import { contactWhatsapp } from "@/lib/whatsapp";
 
 interface Props {
   /**
@@ -11,6 +11,9 @@ interface Props {
    * `NEXT_PUBLIC_*` marquée « Sensitive » dans Vercel n'est pas disponible au
    * build, et le bundle navigateur recevrait `undefined`. Passer la valeur en
    * prop la fait résoudre à chaque requête, côté serveur.
+   *
+   * Si elle est vide, `contactWhatsapp()` retombe sur le numéro en dur : le
+   * bouton reste fonctionnel sur un déploiement non configuré.
    */
   numeroContact: string;
 }
@@ -18,9 +21,9 @@ interface Props {
 export default function FormulaireContact({ numeroContact }: Props) {
   const [nom, setNom] = useState("");
   const [tel, setTel] = useState("");
-  const [secteur, setSecteur] = useState(SECTEURS[0][0]);
+  const [secteur, setSecteur] = useState<string>(SECTEURS[0][0]);
 
-  const numero = numeroWhatsapp(numeroContact);
+  const numero = contactWhatsapp(numeroContact);
   const complet = nom.trim().length > 1 && tel.trim().length > 5;
 
   const libelle = SECTEURS.find(([cle]) => cle === secteur)?.[1] ?? secteur;
@@ -82,29 +85,24 @@ export default function FormulaireContact({ numeroContact }: Props) {
             </select>
           </div>
 
-          {numero ? (
-            <a
-              href={complet ? lien : undefined}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-disabled={!complet}
-              onClick={(e) => {
-                if (!complet) e.preventDefault();
-              }}
-              className={`btn-whatsapp w-full text-center ${
-                complet ? "" : "opacity-50 cursor-not-allowed"
-              }`}
-            >
-              💬 Nous contacter sur WhatsApp
-            </a>
-          ) : (
-            <p className="text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded-xl p-3">
-              Le numéro de contact n&apos;est pas encore configuré
-              (variable <code>NEXT_PUBLIC_WHATSAPP_CONTACT</code>).
-            </p>
-          )}
+          {/* Plus de branche « numéro non configuré » : le numéro est
+              toujours résolu, variable d'environnement ou valeur par défaut. */}
+          <a
+            href={complet ? lien : undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-disabled={!complet}
+            onClick={(e) => {
+              if (!complet) e.preventDefault();
+            }}
+            className={`btn-whatsapp w-full text-center ${
+              complet ? "" : "opacity-50 cursor-not-allowed"
+            }`}
+          >
+            💬 Nous contacter sur WhatsApp
+          </a>
 
-          {!complet && numero && (
+          {!complet && (
             <p className="text-xs text-gray-400 text-center">
               Renseigne ton nom et ton téléphone pour continuer.
             </p>

@@ -1,3 +1,4 @@
+import type { CleSecteur } from "@/lib/secteurs";
 export type UserRole = "super_admin" | "manager" | "employee" | "prospecteur";
 export type BoutiqueStatus = "demo" | "active" | "suspended";
 export type CreatedByRole = "super_admin" | "manager" | "prospecteur";
@@ -15,13 +16,9 @@ export interface Prospecteur {
   created_by: string | null;
   last_activity: string | null;
 }
-export type BoutiqueCategory =
-  | "pret_a_porter"
-  | "electromenager"
-  | "bazar"
-  | "quincaillerie"
-  | "bijouterie"
-  | "autre";
+// Dérivé de SECTEURS (lib/secteurs.ts), lui-même aligné sur la contrainte
+// CHECK de boutiques.category. Une seule liste à faire évoluer.
+export type BoutiqueCategory = CleSecteur;
 export type SubscriptionStatus = "pending" | "active" | "suspended" | "cancelled";
 export type OrderStatus = "new" | "confirmed" | "processing" | "delivered" | "cancelled";
 

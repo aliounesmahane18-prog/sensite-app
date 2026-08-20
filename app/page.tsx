@@ -5,6 +5,7 @@ import ProduitsVedettes from "@/components/landing/produits-vedettes";
 import FormulaireContact from "@/components/landing/formulaire-contact";
 import { getBannieres, getBoutiques, getProduitsVedettes } from "@/lib/landing";
 import { envServeur } from "@/lib/supabase-server";
+import { contactWhatsapp } from "@/lib/whatsapp";
 
 /**
  * Page d'accueil : le « centre commercial numérique ».
@@ -25,8 +26,9 @@ export default async function HomePage() {
   ]);
 
   // Lu à l'exécution, comme la config Supabase : la valeur suit un changement
-  // de variable dans Vercel sans nécessiter un nouveau build.
-  const numeroContact = envServeur("NEXT_PUBLIC_WHATSAPP_CONTACT");
+  // de variable dans Vercel sans nécessiter un nouveau build. À défaut, le
+  // numéro de contact en dur — le formulaire ne doit jamais être inutilisable.
+  const numeroContact = contactWhatsapp(envServeur("NEXT_PUBLIC_WHATSAPP_CONTACT"));
 
   return (
     <main className="min-h-screen bg-white">

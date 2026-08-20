@@ -472,3 +472,17 @@ CREATE POLICY public_read_banners ON storage.objects
   FOR SELECT USING (bucket_id = 'boutique-banners');
 -- L'écriture dans boutique-banners est déjà couverte par la policy
 -- product_images_superadmin_all, qui liste les trois buckets.
+
+-- ============================================
+-- SECTEURS : RESTAURANT, TEXTILE, DIGITAL
+-- ============================================
+-- La contrainte CHECK est la seule barrière : proposer un secteur dans les
+-- formulaires sans l'ajouter ici ferait échouer l'INSERT côté base.
+-- Côté code, la liste vit dans lib/secteurs.ts (SECTEURS) et le type
+-- BoutiqueCategory en est dérivé — une seule liste à faire évoluer.
+ALTER TABLE boutiques DROP CONSTRAINT IF EXISTS boutiques_category_check;
+ALTER TABLE boutiques ADD CONSTRAINT boutiques_category_check
+  CHECK (category IN (
+    'pret_a_porter','electromenager','bazar','quincaillerie','bijouterie',
+    'restaurant','textile','digital','autre'
+  ));
