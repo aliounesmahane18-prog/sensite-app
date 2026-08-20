@@ -57,6 +57,23 @@ export function getSupabasePublicServer(): SupabaseClient | null {
 
   client = createClient(url, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: {
+      /**
+       * `cache: "no-store"` sur chaque appel, et ce n'est pas une précaution
+       * de confort.
+       *
+       * Next.js remplace le `fetch` global par une version qui met en cache
+       * les réponses GET (Data Cache). `export const dynamic = "force-dynamic"`
+       * rend la ROUTE dynamique mais ne désactive pas ce cache : la page
+       * était bien re-rendue à chaque requête, avec des données figées.
+       *
+       * Effet observé : une bannière ou un secteur modifié dans l'admin
+       * n'apparaissait pas sur la page d'accueil, alors que l'admin — qui
+       * lit depuis le navigateur, donc sans ce cache — affichait la bonne
+       * valeur.
+       */
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
   });
   return client;
 }

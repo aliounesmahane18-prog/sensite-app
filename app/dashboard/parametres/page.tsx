@@ -7,6 +7,7 @@ import { getSupabase } from "@/lib/supabase";
 import { THEME_PRESETS } from "@/lib/themes";
 import { useImageUpload } from "@/lib/use-image-upload";
 import ImageCropper from "@/components/image-cropper";
+import { SECTEURS } from "@/lib/secteurs";
 
 export default function ParametresPage() {
   const router = useRouter();
@@ -22,6 +23,9 @@ export default function ParametresPage() {
     description: "",
     whatsapp_number: "",
     quartier: "",
+    // Le secteur est porté par `category` : c'est la colonne que lisent le
+    // filtre de la page d'accueil et les icônes de fond du catalogue.
+    category: "autre",
     address: "",
     color_primary: "#F97316",
     color_secondary: "#1C1917",
@@ -44,6 +48,7 @@ export default function ParametresPage() {
           description: b.description || "",
           whatsapp_number: b.whatsapp_number || "",
           quartier: b.quartier || "",
+          category: b.category || "autre",
           address: b.address || "",
           color_primary: b.color_primary || "#F97316",
           color_secondary: b.color_secondary || "#1C1917",
@@ -201,6 +206,20 @@ export default function ParametresPage() {
               <label className="text-sm font-medium text-gray-700 mb-1 block">Quartier</label>
               <input type="text" value={form.quartier} onChange={e => setForm({ ...form, quartier: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300" />
+            </div>
+            <div>
+              <label htmlFor="secteur" className="text-sm font-medium text-gray-700 mb-1 block">
+                Secteur d&apos;activité
+              </label>
+              <select id="secteur" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-orange-300">
+                {SECTEURS.map(([cle, label]) => (
+                  <option key={cle} value={cle}>{label}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                Détermine le rayon où ta boutique apparaît sur la page d&apos;accueil.
+              </p>
             </div>
           </div>
         </div>

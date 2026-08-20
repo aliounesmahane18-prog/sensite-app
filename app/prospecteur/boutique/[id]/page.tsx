@@ -11,10 +11,13 @@ import LogoUpload from "@/components/logo-upload";
 import { THEME_PRESETS } from "@/lib/themes";
 import { catalogueUrl } from "@/lib/env";
 import type { BoutiqueStatus } from "@/types";
+import { SECTEURS } from "@/lib/secteurs";
 
 interface Boutique {
   id: string; name: string; slug: string; description: string | null;
   whatsapp_number: string; ville: string | null; quartier: string | null;
+  // Secteur d'activité de la boutique (voir lib/secteurs.ts).
+  category: string | null;
   color_primary: string; color_secondary: string; color_accent: string;
   theme_preset: string; status: BoutiqueStatus; logo_url: string | null;
 }
@@ -88,7 +91,7 @@ export default function ProspecteurBoutiquePage() {
         // une boutique qui ne lui appartient pas renvoie simplement 0 ligne.
         const { data: b } = await getSupabase()
           .from("boutiques")
-          .select("id, name, slug, description, whatsapp_number, ville, quartier, color_primary, color_secondary, color_accent, theme_preset, status, logo_url")
+          .select("id, name, slug, description, whatsapp_number, ville, quartier, category, color_primary, color_secondary, color_accent, theme_preset, status, logo_url")
           .eq("id", boutiqueId)
           .eq("prospecteur_id", fiche.id)
           .maybeSingle();
@@ -124,6 +127,7 @@ export default function ProspecteurBoutiquePage() {
           whatsapp_number: boutique.whatsapp_number,
           ville: boutique.ville,
           quartier: boutique.quartier,
+          category: boutique.category,
           color_primary: boutique.color_primary,
           color_secondary: boutique.color_secondary,
           color_accent: boutique.color_accent,
@@ -259,6 +263,18 @@ export default function ProspecteurBoutiquePage() {
                 <label className="label" htmlFor="p-quartier">Quartier</label>
                 <input id="p-quartier" className="input-field" value={boutique.quartier ?? ""}
                   onChange={e => setBoutique({ ...boutique, quartier: e.target.value })} />
+              </div>
+              <div>
+                <label className="label" htmlFor="p-secteur">Secteur d&apos;activité</label>
+                <select id="p-secteur" className="input-field" value={boutique.category ?? "autre"}
+                  onChange={e => setBoutique({ ...boutique, category: e.target.value })}>
+                  {SECTEURS.map(([cle, label]) => (
+                    <option key={cle} value={cle}>{label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Détermine le rayon où la boutique apparaît sur la page d&apos;accueil.
+                </p>
               </div>
             </div>
 
