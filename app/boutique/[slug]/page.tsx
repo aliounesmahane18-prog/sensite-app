@@ -387,6 +387,18 @@ export default function CataloguePage() {
           <div className="flex-1 bg-black/50" onClick={() => setSelectedProduct(null)} />
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-5 space-y-4 max-h-[80vh] overflow-y-auto">
             <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-2" />
+
+            {/* Fermer par le fond noir n'est pas devinable : un retour explicite,
+                teinté avec la couleur de la boutique. */}
+            <button
+              type="button"
+              onClick={() => setSelectedProduct(null)}
+              className="flex items-center gap-1 text-sm font-medium -ml-1 px-1 py-1 rounded-lg hover:bg-gray-50 transition-colors"
+              style={{ color: primary }}
+            >
+              <span aria-hidden="true">←</span> Retour
+            </button>
+
             <div className="flex items-start gap-3">
               {selectedProduct.image_url && (
                 <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0"

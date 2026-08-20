@@ -99,9 +99,22 @@ Ajouter dans Vercel Dashboard → **Environment Variables** :
 
 `NEXT_PUBLIC_WHATSAPP_CONTACT` alimente le formulaire « Ouvrez votre boutique »
 de la page d'accueil et le lien WhatsApp du pied de page. Chiffres uniquement,
-indicatif pays compris, sans `+` ni espaces. En local, l'ajouter à `.env.local`
-(voir `.env.example`). Si la variable est absente, le formulaire reste affiché
-mais indique que le numéro n'est pas configuré — aucune page ne casse.
+indicatif pays compris, sans `+` ni espaces. Si la variable est absente, le
+formulaire reste affiché mais indique que le numéro n'est pas configuré —
+aucune page ne casse.
+
+**À faire dans Vercel** — la variable n'est pour l'instant que dans le
+`.env.local` de la machine de dev, donc le site en production ne l'a pas :
+
+> Vercel Dashboard → le projet → **Settings** → **Environment Variables** →
+> *Add New*
+> - Key : `NEXT_PUBLIC_WHATSAPP_CONTACT`
+> - Value : `221777777357`
+> - Environments : Production, Preview, Development
+> - **Sensitive : décoché**
+>
+> Puis **Redeploy** (une variable ajoutée ne s'applique pas au déploiement
+> déjà en ligne).
 
 > ⚠️ **Ne coche pas « Sensitive » sur les variables `NEXT_PUBLIC_*`.**
 > Une variable *Sensitive* n'est pas lisible pendant le build : Next.js ne peut

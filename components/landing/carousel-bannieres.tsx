@@ -74,7 +74,11 @@ export default function CarouselBannieres({ bannieres }: Props) {
           const lien = destination(b);
           const contenu = (
             <>
-              {b.image_url ? (
+              {/* Le dégradé est TOUJOURS posé en premier, sous l'image. Une
+                  bannière sans visuel — ou dont l'image ne se charge pas —
+                  reste ainsi lisible : fond coloré, titre et sous-titre. */}
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500 via-orange-400 to-amber-300" />
+              {b.image_url && (
                 <Image
                   src={b.image_url}
                   alt={b.titre ?? "Bannière"}
@@ -83,8 +87,6 @@ export default function CarouselBannieres({ bannieres }: Props) {
                   priority={i === 0}
                   className="object-cover object-center"
                 />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-500 via-orange-400 to-amber-300" />
               )}
 
               {(b.titre || b.sous_titre) && (

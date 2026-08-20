@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { urlSupabase } from "@/lib/supabase-server";
 
 /**
  * Client Supabase « service role » : il contourne les règles RLS.
@@ -16,7 +17,10 @@ export function getSupabaseAdmin(): SupabaseClient {
   }
   if (admin) return admin;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
+  // `urlSupabase()` lit la variable à l'exécution : écrite en toutes lettres,
+  // `process.env.NEXT_PUBLIC_SUPABASE_URL` serait figée au build et vaudrait
+  // `undefined` si la variable est marquée « Sensitive » dans Vercel.
+  const url = urlSupabase();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   if (!url || !serviceRoleKey) {
     throw new Error(

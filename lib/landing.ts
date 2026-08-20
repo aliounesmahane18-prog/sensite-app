@@ -40,6 +40,15 @@ export interface ProduitVedette {
 }
 
 /**
+ * Une requête qui échoue ne doit pas disparaître sans laisser de trace :
+ * c'est ce qui a rendu l'absence de bannières indétectable en production.
+ * La landing dégrade toujours, mais la cause est désormais dans les logs.
+ */
+function signaler(quoi: string, error: { message: string } | null): void {
+  if (error) console.error(`[landing] ${quoi} : ${error.message}`);
+}
+
+/**
  * PostgREST renvoie une relation « plusieurs-vers-un » tantôt comme objet,
  * tantôt comme tableau à un élément selon la façon dont la clé étrangère est
  * résolue. On normalise pour que l'appelant n'ait pas à s'en soucier.
@@ -60,23 +69,44 @@ export async function getBannieres(): Promise<BanniereLanding[]> {
   const supabase = getSupabasePublicServer();
   if (!supabase) return [];
 
+  // Pas de jointure PostgREST ici, volontairement. Un `select` imbriqué
+  // dépend du cache de relations de PostgREST : s'il ne résout pas la clé
+  // étrangère, c'est TOUTE la requête qui échoue et le carrousel se retrouve
+  // vide sans explication. Cette requête est donc exactement de la même
+  // forme que celle de /admin/bannieres, qui fonctionne.
   const { data, error } = await supabase
     .from("bannieres_landing")
-    .select("id, titre, sous_titre, image_url, lien_url, boutique:boutiques(slug)")
+    .select("id, titre, sous_titre, image_url, lien_url, boutique_id")
     .eq("is_active", true)
     .order("ordre", { ascending: true });
 
+  signaler("chargement des bannières", error);
   if (error || !data) return [];
+
+  // Les slugs sont résolus à part : au pire, la bannière retombe sur
+  // `lien_url` au lieu de faire tomber tout le carrousel.
+  const ids = Array.from(
+    new Set(data.map((b) => b.boutique_id as string | null).filter((v): v is string => Boolean(v))),
+  );
+  const slugs = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: liees, error: errSlugs } = await supabase
+      .from("boutiques")
+      .select("id, slug")
+      .in("id", ids);
+    signaler("résolution des boutiques liées aux bannières", errSlugs);
+    for (const b of liees ?? []) slugs.set(b.id as string, b.slug as string);
+  }
 
   return data.map((b) => ({
     id: b.id as string,
     titre: (b.titre as string | null) ?? null,
     sous_titre: (b.sous_titre as string | null) ?? null,
-    image_url: b.image_url as string,
+    image_url: (b.image_url as string | null) ?? "",
     lien_url: (b.lien_url as string | null) ?? null,
     // La boutique liée peut être invisible pour un visiteur (RLS) : dans ce
-    // cas la jointure renvoie null et la bannière retombe sur `lien_url`.
-    boutique_slug: unRelation<{ slug: string }>(b.boutique)?.slug ?? null,
+    // cas le slug reste absent et la bannière retombe sur `lien_url`.
+    boutique_slug: slugs.get(b.boutique_id as string) ?? null,
   }));
 }
 
@@ -91,6 +121,7 @@ export async function getBoutiques(): Promise<BoutiqueLanding[]> {
     .order("is_featured", { ascending: false })
     .order("created_at", { ascending: false });
 
+  signaler("chargement des boutiques", error);
   if (error || !data) return [];
   return data as BoutiqueLanding[];
 }
@@ -150,7 +181,8 @@ export async function getProduitsVedettes(limite = 12): Promise<ProduitVedette[]
       .order("created_at", { ascending: false })
       .limit(n);
 
-  const { data: prioritaires } = await requete(true, limite);
+  const { data: prioritaires, error } = await requete(true, limite);
+  signaler("chargement des produits vedettes", error);
   const vedettes = lignesBrutes(prioritaires)
     .map(versProduitVedette)
     .filter((p): p is ProduitVedette => p !== null);
