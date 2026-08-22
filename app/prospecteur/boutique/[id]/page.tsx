@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import { getProspecteur, getSessionProfile } from "@/lib/session";
 import { ErrorBanner } from "@/components/config-error";
@@ -13,6 +12,7 @@ import { catalogueUrl } from "@/lib/env";
 import type { BoutiqueStatus } from "@/types";
 import { SECTEURS } from "@/lib/secteurs";
 import AccesGerant from "@/components/acces-gerant";
+import BoutiqueShell from "@/components/boutique-shell";
 
 interface Boutique {
   id: string; name: string; slug: string; description: string | null;
@@ -181,17 +181,26 @@ export default function ProspecteurBoutiquePage() {
   const badge = STATUS_BADGE[boutique.status] ?? STATUS_BADGE.demo;
   const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-gray-900 text-white px-4 h-14 flex items-center gap-3 sticky top-0 z-30">
-        <Link href="/prospecteur" className="text-gray-300 hover:text-white shrink-0">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <span className="font-bold truncate flex-1">{boutique.name}</span>
-        <span className={`badge ${badge.className} shrink-0`}>{badge.label}</span>
-      </nav>
+  const onglets = ([
+    ["parametres", "⚙️ Paramètres"],
+    ["produits", `📦 Produits (${produits.length})`],
+    ["commandes", `🛒 Commandes (${commandes.length})`],
+  ] as [Onglet, string][]).map(([cle, label]) => ({
+    cle,
+    label,
+    actif: onglet === cle,
+    onClick: () => { setOnglet(cle); setProduitEdite(null); },
+  }));
 
-      <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
+  return (
+    <BoutiqueShell
+      boutique={boutique}
+      badge={badge}
+      onglets={onglets}
+      retour={{ href: "/prospecteur", label: "← Mes boutiques" }}
+      catalogueUrl={catalogueUrl(boutique.slug)}
+    >
+      <div className="max-w-2xl mx-auto space-y-5">
         {error && <ErrorBanner message={error} />}
 
         {boutique.status === "demo" && (
@@ -200,32 +209,6 @@ export default function ProspecteurBoutiquePage() {
             du public. Seul l&apos;administrateur peut l&apos;activer.
           </div>
         )}
-
-        <div>
-          <p className="label">Lien du catalogue</p>
-          <p className="font-mono text-sm text-orange-500 break-all">{catalogueUrl(boutique.slug)}</p>
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden"
-          style={{ scrollbarWidth: "none" }}>
-          {([
-            ["parametres", `⚙️ Paramètres`],
-            ["produits", `📦 Produits (${produits.length})`],
-            ["commandes", `🛒 Commandes (${commandes.length})`],
-          ] as [Onglet, string][]).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setOnglet(key); setProduitEdite(null); }}
-              className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-semibold border transition-all ${
-                onglet === key
-                  ? "bg-orange-500 border-orange-500 text-white"
-                  : "bg-transparent border-orange-200 text-orange-600"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
 
         {onglet === "parametres" && (
           <div className="space-y-4">
@@ -423,6 +406,6 @@ export default function ProspecteurBoutiquePage() {
           </div>
         )}
       </div>
-    </div>
+    </BoutiqueShell>
   );
 }
