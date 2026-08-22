@@ -1,30 +1,39 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { getAccessToken, getSupabase } from "@/lib/supabase";
+import { getAccessToken } from "@/lib/supabase";
 import { getErrorMessage } from "@/lib/utils";
 import { emailMasque, LONGUEUR_MOT_DE_PASSE_MIN } from "@/lib/gerant-partage";
 import ChampsCompteGerant from "@/components/champs-compte-gerant";
 
-type Mode =
-  /** Le prospecteur gère le compte du gérant d'une de ses boutiques. */
-  | { mode: "prospecteur"; boutiqueId: string }
-  /** Le gérant change son propre mot de passe. */
-  | { mode: "gerant"; email: string };
+interface Mode {
+  /**
+   * `prospecteur` : uniquement le mot de passe, et seulement sur ses propres
+   * boutiques. `admin` : mot de passe ET adresse email, sur n'importe quelle
+   * boutique.
+   *
+   * Le gérant lui-même n'a pas d'accès : ses identifiants sont gérés pour
+   * lui.
+   */
+  mode: "prospecteur" | "admin";
+  boutiqueId: string;
+}
 
 /**
- * Section « accès » des paramètres boutique.
+ * Section « accès gérant » des paramètres boutique.
  *
- * Deux chemins très différents derrière la même interface :
- * — le prospecteur passe par une route serveur, parce que modifier le compte
- *   d'un AUTRE utilisateur exige la clé service role ;
- * — le gérant utilise `auth.updateUser`, qui agit sur sa propre session et ne
- *   demande aucun privilège particulier.
+ * Tout passe par une route serveur : modifier le compte d'un AUTRE
+ * utilisateur exige la clé service role, qui ne doit jamais atteindre le
+ * navigateur. Chaque route revérifie les droits de l'appelant.
  */
-export default function AccesGerant(props: Mode) {
-  const [emailGerant, setEmailGerant] = useState<string | null>(
-    props.mode === "gerant" ? props.email : null,
-  );
-  const [chargement, setChargement] = useState(props.mode === "prospecteur");
+export default function AccesGerant({ mode, boutiqueId }: Mode) {
+  const estAdmin = mode === "admin";
+  const base = estAdmin
+    ? `/api/admin/boutiques/${boutiqueId}/gerant`
+    : `/api/prospecteur/boutiques/${boutiqueId}/gerant`;
+
+  const [emailGerant, setEmailGerant] = useState<string | null>(null);
+  const [nouvelEmailGerant, setNouvelEmailGerant] = useState("");
+  const [chargement, setChargement] = useState(true);
   const [mdp, setMdp] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [visible, setVisible] = useState(false);
@@ -36,24 +45,20 @@ export default function AccesGerant(props: Mode) {
   const [nouvelEmail, setNouvelEmail] = useState("");
   const [nouveauMdp, setNouveauMdp] = useState("");
 
-  const boutiqueId = props.mode === "prospecteur" ? props.boutiqueId : null;
-
   const charger = useCallback(async () => {
-    if (!boutiqueId) return;
     try {
       const token = await getAccessToken();
-      const res = await fetch(`/api/prospecteur/boutiques/${boutiqueId}/gerant`, {
-        headers: { Authorization: `Bearer ${token ?? ""}` },
-      });
+      const res = await fetch(base, { headers: { Authorization: `Bearer ${token ?? ""}` } });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       setEmailGerant(json.gerant?.email ?? null);
+      setNouvelEmailGerant(json.gerant?.email ?? "");
     } catch (err) {
       setErreur(getErrorMessage(err));
     } finally {
       setChargement(false);
     }
-  }, [boutiqueId]);
+  }, [base]);
 
   useEffect(() => {
     charger();
@@ -66,7 +71,7 @@ export default function AccesGerant(props: Mode) {
     setEnvoi(true);
     try {
       const token = await getAccessToken();
-      const res = await fetch(`/api/prospecteur/boutiques/${boutiqueId}/gerant`, {
+      const res = await fetch(base, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
         body: JSON.stringify({ email: nouvelEmail.trim(), password: nouveauMdp }),
@@ -74,6 +79,7 @@ export default function AccesGerant(props: Mode) {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       setEmailGerant(json.gerant.email);
+      setNouvelEmailGerant(json.gerant.email);
       setNouvelEmail("");
       setNouveauMdp("");
       setSucces("Compte gérant créé ✅ — transmets les identifiants au gérant.");
@@ -84,39 +90,55 @@ export default function AccesGerant(props: Mode) {
     }
   };
 
-  const changerMotDePasse = async (e: React.FormEvent) => {
+  const emailChange = estAdmin && nouvelEmailGerant.trim().toLowerCase() !== (emailGerant ?? "").toLowerCase();
+
+  const mettreAJour = async (e: React.FormEvent) => {
     e.preventDefault();
     setErreur("");
     setSucces("");
 
-    if (mdp.length < LONGUEUR_MOT_DE_PASSE_MIN) {
-      setErreur(`Le mot de passe doit contenir au moins ${LONGUEUR_MOT_DE_PASSE_MIN} caractères`);
-      return;
+    // Le mot de passe est facultatif côté admin : il peut ne changer que
+    // l'adresse. Côté prospecteur, c'est le seul champ, donc obligatoire.
+    if (mdp || !estAdmin) {
+      if (mdp.length < LONGUEUR_MOT_DE_PASSE_MIN) {
+        setErreur(`Le mot de passe doit contenir au moins ${LONGUEUR_MOT_DE_PASSE_MIN} caractères`);
+        return;
+      }
+      if (mdp !== confirmation) {
+        setErreur("Les deux mots de passe ne sont pas identiques.");
+        return;
+      }
     }
-    if (mdp !== confirmation) {
-      setErreur("Les deux mots de passe ne sont pas identiques.");
+    if (!mdp && !emailChange) {
+      setErreur("Rien à modifier.");
       return;
     }
 
     setEnvoi(true);
     try {
-      if (props.mode === "gerant") {
-        // Le gérant est connecté : sa propre session suffit.
-        const { error } = await getSupabase().auth.updateUser({ password: mdp });
-        if (error) throw new Error(error.message);
-      } else {
-        const token = await getAccessToken();
-        const res = await fetch(`/api/prospecteur/boutiques/${boutiqueId}/gerant`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
-          body: JSON.stringify({ password: mdp }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error);
+      const token = await getAccessToken();
+      const res = await fetch(base, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
+        body: JSON.stringify({
+          ...(mdp ? { password: mdp } : {}),
+          ...(emailChange ? { email: nouvelEmailGerant.trim() } : {}),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      if (json.email) {
+        setEmailGerant(json.email);
+        setNouvelEmailGerant(json.email);
       }
       setMdp("");
       setConfirmation("");
-      setSucces("Mot de passe mis à jour ✅");
+      setSucces(
+        mdp && emailChange ? "Email et mot de passe mis à jour ✅"
+          : mdp ? "Mot de passe mis à jour ✅"
+          : "Email mis à jour ✅",
+      );
     } catch (err) {
       setErreur(getErrorMessage(err));
     } finally {
@@ -124,11 +146,9 @@ export default function AccesGerant(props: Mode) {
     }
   };
 
-  const titre = props.mode === "gerant" ? "🔐 Mon accès" : "🔐 Accès gérant";
-
   return (
     <div className="card p-4 space-y-4">
-      <h2 className="font-bold text-gray-900">{titre}</h2>
+      <h2 className="font-bold text-gray-900">🔐 Accès gérant</h2>
 
       {erreur && (
         <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-sm">{erreur}</div>
@@ -160,22 +180,35 @@ export default function AccesGerant(props: Mode) {
           </button>
         </form>
       ) : (
-        <form onSubmit={changerMotDePasse} className="space-y-4">
-          <div>
-            <span className="label">Email {props.mode === "gerant" ? "" : "du gérant"}</span>
-            <p className="input-field bg-gray-50 text-gray-600">
-              {props.mode === "gerant" ? emailGerant : emailMasque(emailGerant)}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              {props.mode === "gerant"
-                ? "L'email de connexion ne se change pas ici."
-                : "Masqué volontairement."}
-            </p>
-          </div>
+        <form onSubmit={mettreAJour} className="space-y-4">
+          {estAdmin ? (
+            <div>
+              <label className="label" htmlFor="ag-email-gerant">Email du gérant</label>
+              <input
+                id="ag-email-gerant"
+                type="email"
+                value={nouvelEmailGerant}
+                onChange={(e) => setNouvelEmailGerant(e.target.value)}
+                className="input-field"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                C&apos;est son identifiant de connexion : le modifier change la façon dont
+                il se connecte.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <span className="label">Email du gérant</span>
+              <p className="input-field bg-gray-50 text-gray-600">{emailMasque(emailGerant)}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Masqué volontairement. Seul l&apos;administrateur peut changer l&apos;adresse.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="label" htmlFor="ag-nouveau">
-              Nouveau mot de passe
+              Nouveau mot de passe{estAdmin && <span className="text-gray-400 font-normal"> (optionnel)</span>}
             </label>
             <div className="relative">
               <input
@@ -215,13 +248,13 @@ export default function AccesGerant(props: Mode) {
 
           <button
             type="submit"
-            disabled={envoi || mdp.length === 0}
+            disabled={envoi || (mdp.length === 0 && !emailChange)}
             className="btn-primary w-full"
           >
             {envoi
               ? "Enregistrement…"
-              : props.mode === "gerant"
-                ? "Changer mon mot de passe"
+              : estAdmin
+                ? "Mettre à jour l'accès"
                 : "Mettre à jour le mot de passe"}
           </button>
         </form>

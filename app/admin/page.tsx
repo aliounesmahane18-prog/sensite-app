@@ -10,6 +10,7 @@ import { formatFcfa, getErrorMessage } from "@/lib/utils";
 import FacturationPanel from "@/components/facturation-panel";
 import { echeance, montantLisible, type Facturation } from "@/lib/facturation";
 import AdminTabs from "@/components/admin-tabs";
+import AccesGerant from "@/components/acces-gerant";
 
 interface Boutique {
   id: string;
@@ -239,6 +240,18 @@ export default function AdminPage() {
                   setBoutiques((prev) => prev.map((x) => (x.id === b.id ? { ...x, ...f } : x)))
                 }
               />
+
+              {/* Repliée par défaut : l'admin gère surtout la facturation, les
+                  accès ne se touchent qu'en cas de problème de connexion. */}
+              <details className="group">
+                <summary className="cursor-pointer text-sm font-semibold text-gray-600 hover:text-orange-500 list-none flex items-center gap-2">
+                  <span className="transition-transform group-open:rotate-90">▸</span>
+                  🔐 Accès gérant
+                </summary>
+                <div className="mt-3">
+                  <AccesGerant mode="admin" boutiqueId={b.id} />
+                </div>
+              </details>
             </div>
           ))}
 
