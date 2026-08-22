@@ -12,6 +12,7 @@ import { THEME_PRESETS } from "@/lib/themes";
 import { catalogueUrl } from "@/lib/env";
 import type { BoutiqueStatus } from "@/types";
 import { SECTEURS } from "@/lib/secteurs";
+import AccesGerant from "@/components/acces-gerant";
 
 interface Boutique {
   id: string; name: string; slug: string; description: string | null;
@@ -277,6 +278,8 @@ export default function ProspecteurBoutiquePage() {
                 </p>
               </div>
             </div>
+
+            <AccesGerant mode="prospecteur" boutiqueId={boutique.id} />
 
             <div className="card p-4 space-y-4">
               <h2 className="font-bold text-gray-900">🎨 Thème couleurs</h2>

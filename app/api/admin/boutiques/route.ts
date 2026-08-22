@@ -1,24 +1,16 @@
-import { randomInt } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireSuperAdmin } from "@/lib/api-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getErrorMessage, slugify } from "@/lib/utils";
 import type { BoutiqueCategory } from "@/types";
 import { CLES_SECTEURS } from "@/lib/secteurs";
+import { creerCompteGerant, emailValide, verifierMotDePasse } from "@/lib/compte-gerant";
 
 export const dynamic = "force-dynamic";
 
 // Liste partagée avec les formulaires : une seule définition à faire évoluer,
 // et elle est alignée sur la contrainte CHECK de la base.
 const CATEGORIES = CLES_SECTEURS as BoutiqueCategory[];
-
-function generatePassword(): string {
-  // Alphabet sans caractères ambigus (0/O, 1/l/I) : le mot de passe est
-  // transmis oralement ou par WhatsApp au gérant.
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  const body = Array.from({ length: 10 }, () => alphabet[randomInt(alphabet.length)]).join("");
-  return `SEN-${body}!`;
-}
 
 /**
  * Crée une boutique complète : compte auth du gérant + boutique + profil lié.
@@ -53,6 +45,12 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  if (!emailValide(managerEmail)) {
+    return NextResponse.json({ error: "Adresse email invalide" }, { status: 400 });
+  }
+  // Mot de passe absent : la route en génère un, comme avant.
+  const { motDePasse, erreur: erreurMdp } = verifierMotDePasse(payload.manager_password);
+  if (erreurMdp) return NextResponse.json({ error: erreurMdp }, { status: 400 });
   if (!CATEGORIES.includes(category)) {
     return NextResponse.json({ error: "Catégorie inconnue." }, { status: 400 });
   }
@@ -71,60 +69,47 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const password = generatePassword();
-  const { data: created, error: userError } = await admin.auth.admin.createUser({
-    email: managerEmail,
-    password,
-    email_confirm: true,
-  });
-  if (userError || !created?.user) {
+  const { data: boutique, error: boutiqueError } = await admin
+    .from("boutiques")
+    .insert({
+      name,
+      slug,
+      category,
+      whatsapp_number: whatsappNumber,
+      quartier: quartier || null,
+      monthly_price: Math.round(monthlyPrice),
+      subscription_status: "pending",
+      created_by: auth.userId,
+      created_by_role: "super_admin",
+    })
+    .select()
+    .single();
+  if (boutiqueError || !boutique) {
     return NextResponse.json(
-      { error: userError?.message ?? "Impossible de créer le compte du gérant." },
+      { error: boutiqueError?.message ?? "Création de la boutique impossible." },
       { status: 400 },
     );
   }
-  const userId = created.user.id;
 
-  // À partir d'ici, toute erreur doit supprimer le compte auth qu'on vient de
-  // créer, sinon l'email reste pris et l'admin ne peut pas réessayer.
+  // Le compte gérant vient après la boutique : `profiles.boutique_id` a
+  // besoin de son id. Si la création échoue (email déjà pris, par exemple),
+  // la boutique est supprimée — sinon l'admin se retrouverait avec une
+  // boutique vide et un slug pris.
   try {
-    const { data: boutique, error: boutiqueError } = await admin
-      .from("boutiques")
-      .insert({
-        name,
-        slug,
-        category,
-        whatsapp_number: whatsappNumber,
-        quartier: quartier || null,
-        monthly_price: Math.round(monthlyPrice),
-        subscription_status: "pending",
-        created_by: auth.userId,
-        created_by_role: "super_admin",
-      })
-      .select()
-      .single();
-    if (boutiqueError || !boutique) {
-      throw new Error(boutiqueError?.message ?? "Création de la boutique impossible.");
-    }
-
-    const { error: profileError } = await admin.from("profiles").insert({
-      id: userId,
+    const compte = await creerCompteGerant({
+      admin,
       email: managerEmail,
-      full_name: managerName || null,
-      role: "manager",
-      boutique_id: boutique.id,
+      motDePasse,
+      nomComplet: managerName,
+      boutiqueId: boutique.id as string,
     });
-    if (profileError) {
-      await admin.from("boutiques").delete().eq("id", boutique.id);
-      throw new Error(profileError.message);
-    }
 
     return NextResponse.json({
       boutique: { id: boutique.id, name: boutique.name, slug: boutique.slug },
-      manager: { email: managerEmail, password },
+      manager: { email: compte.email, password: compte.motDePasse },
     });
   } catch (err) {
-    await admin.auth.admin.deleteUser(userId).catch(() => undefined);
+    await admin.from("boutiques").delete().eq("id", boutique.id);
     return NextResponse.json({ error: getErrorMessage(err) }, { status: 400 });
   }
 }

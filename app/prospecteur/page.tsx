@@ -2,13 +2,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getSupabase } from "@/lib/supabase";
+import { getAccessToken, getSupabase } from "@/lib/supabase";
 import { getProspecteur, getSessionProfile } from "@/lib/session";
 import { isSupabaseConfigured } from "@/lib/env";
 import { ConfigError, ErrorBanner } from "@/components/config-error";
 import { slugify } from "@/lib/utils";
 import type { BoutiqueStatus, Prospecteur } from "@/types";
 import { SECTEURS } from "@/lib/secteurs";
+import ChampsCompteGerant from "@/components/champs-compte-gerant";
 
 interface BoutiqueRow {
   id: string;
@@ -40,12 +41,17 @@ export default function ProspecteurPage() {
   const [error, setError] = useState("");
   const [modalOuverte, setModalOuverte] = useState(false);
   const [creation, setCreation] = useState(false);
+  const [compteCree, setCompteCree] = useState<
+    { boutique: string; email: string; password: string } | null
+  >(null);
   const [form, setForm] = useState({
     name: "",
     category: "bazar",
     whatsapp_number: "",
     ville: "",
     quartier: "",
+    manager_email: "",
+    manager_password: "",
     monthly_price: "",
     date_prochain_paiement: "",
     notes_paiement: "",
@@ -156,10 +162,38 @@ export default function ProspecteurPage() {
         );
       }
 
+      // Le compte gérant se crée côté serveur : il faut la clé service role
+      // pour écrire dans auth.users et dans le profil d'un autre utilisateur.
+      // La boutique existe déjà à ce stade ; si la création du compte échoue
+      // (email déjà pris), la boutique est conservée et le compte pourra être
+      // créé depuis sa fiche — plutôt que de perdre la saisie.
+      const token = await getAccessToken();
+      const res = await fetch(`/api/prospecteur/boutiques/${data.id}/gerant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
+        body: JSON.stringify({
+          email: form.manager_email.trim(),
+          password: form.manager_password,
+          full_name: form.name.trim(),
+        }),
+      });
+      const json = await res.json();
+
       setBoutiques(prev => [data, ...prev]);
       setModalOuverte(false);
+
+      if (!res.ok) {
+        setError(
+          `Boutique « ${data.name} » créée, mais le compte gérant n'a pas pu l'être : ${json.error}. ` +
+            "Ouvre la fiche de la boutique pour le créer.",
+        );
+      } else {
+        setCompteCree({ boutique: data.name, email: json.gerant.email, password: json.gerant.password });
+      }
+
       setForm({
         name: "", category: "bazar", whatsapp_number: "", ville: "", quartier: "",
+        manager_email: "", manager_password: "",
         monthly_price: "", date_prochain_paiement: "", notes_paiement: "",
       });
     } catch (err) {
@@ -263,6 +297,56 @@ export default function ProspecteurPage() {
         </div>
 
         {error && <ErrorBanner message={error} />}
+
+        {/* Le mot de passe n'est affiché qu'ici, une seule fois : il n'est
+            stocké nulle part en clair et aucun email n'est envoyé. */}
+        {compteCree && (
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-bold text-green-800">
+                  ✅ Boutique « {compteCree.boutique} » créée
+                </p>
+                <p className="text-xs text-green-700 mt-1">
+                  Transmets ces identifiants au gérant. Ils ne seront plus affichés.
+                </p>
+              </div>
+              <button
+                onClick={() => setCompteCree(null)}
+                className="text-green-700 hover:text-green-900 text-xl leading-none shrink-0"
+                aria-label="Fermer"
+              >
+                ×
+              </button>
+            </div>
+            <div className="bg-white rounded-xl p-3 font-mono text-sm space-y-1 break-all">
+              <p>Email : {compteCree.email}</p>
+              <p>Mot de passe : {compteCree.password}</p>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() =>
+                  navigator.clipboard?.writeText(
+                    `Email : ${compteCree.email}\nMot de passe : ${compteCree.password}`,
+                  )
+                }
+                className="btn-secondary text-xs"
+              >
+                📋 Copier
+              </button>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(
+                  `Voici tes accès SENsite-APP pour ${compteCree.boutique} :\nEmail : ${compteCree.email}\nMot de passe : ${compteCree.password}`,
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary text-xs"
+              >
+                💬 Envoyer sur WhatsApp
+              </a>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -433,6 +517,14 @@ export default function ProspecteurPage() {
             <p className="text-xs text-gray-500">
               Laissés vides, la ville et le quartier reprennent ta zone.
             </p>
+
+            <ChampsCompteGerant
+              prefixe="b"
+              email={form.manager_email}
+              motDePasse={form.manager_password}
+              onEmail={v => setForm({ ...form, manager_email: v })}
+              onMotDePasse={v => setForm({ ...form, manager_password: v })}
+            />
 
             <div className="border-t border-gray-100 pt-4 space-y-4">
               <div>

@@ -8,12 +8,14 @@ import { THEME_PRESETS } from "@/lib/themes";
 import { useImageUpload } from "@/lib/use-image-upload";
 import ImageCropper from "@/components/image-cropper";
 import { SECTEURS } from "@/lib/secteurs";
+import AccesGerant from "@/components/acces-gerant";
 
 export default function ParametresPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [boutiqueId, setBoutiqueId] = useState<string | null>(null);
+  const [emailGerant, setEmailGerant] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const logoUpload = useImageUpload();
@@ -38,6 +40,7 @@ export default function ParametresPage() {
       const supabase = getSupabase();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
+      setEmailGerant(user.email ?? null);
       const { data: profile } = await supabase.from("profiles").select("boutique_id").eq("id", user.id).single();
       if (!profile?.boutique_id) { setLoading(false); return; }
       setBoutiqueId(profile.boutique_id);
@@ -284,6 +287,10 @@ export default function ParametresPage() {
           {saved ? <><Check className="w-5 h-5" /> Sauvegardé !</> : saving ? "Sauvegarde..." : <><Save className="w-5 h-5" /> Sauvegarder</>}
         </button>
       </form>
+
+      {/* Hors du formulaire ci-dessus : AccesGerant a son propre <form>, et
+          des formulaires imbriques sont invalides en HTML. */}
+      {emailGerant && <AccesGerant mode="gerant" email={emailGerant} />}
     </div>
   );
 }
