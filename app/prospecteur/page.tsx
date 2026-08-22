@@ -10,6 +10,7 @@ import { slugify } from "@/lib/utils";
 import type { BoutiqueStatus, Prospecteur } from "@/types";
 import { SECTEURS } from "@/lib/secteurs";
 import ChampsCompteGerant from "@/components/champs-compte-gerant";
+import LogoSensite from "@/components/logo-sensite";
 
 interface BoutiqueRow {
   id: string;
@@ -267,9 +268,9 @@ export default function ProspecteurPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-gray-900 text-white px-4 h-14 flex items-center justify-between sticky top-0 z-30 gap-3">
-        <span className="font-bold truncate">
-          SENsite<span className="text-orange-500">APP</span>
-          <span className="text-xs bg-blue-500 px-2 py-0.5 rounded-full ml-1">Prospecteur</span>
+        <span className="font-bold truncate flex items-center gap-1">
+          <LogoSensite hauteur={28} classeTexte="text-base" sombre />
+          <span className="text-xs bg-blue-500 px-2 py-0.5 rounded-full">Prospecteur</span>
         </span>
         <button
           onClick={async () => {

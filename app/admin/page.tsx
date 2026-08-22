@@ -11,6 +11,7 @@ import FacturationPanel from "@/components/facturation-panel";
 import { echeance, montantLisible, type Facturation } from "@/lib/facturation";
 import AdminTabs from "@/components/admin-tabs";
 import AccesGerant from "@/components/acces-gerant";
+import LogoSensite from "@/components/logo-sensite";
 
 interface Boutique {
   id: string;
@@ -150,9 +151,9 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-gray-900 text-white px-4 h-14 flex items-center justify-between sticky top-0 z-30 gap-3">
-        <span className="font-bold truncate">
-          SENsite<span className="text-orange-500">APP</span>
-          <span className="text-xs bg-orange-500 px-2 py-0.5 rounded-full ml-1">Admin</span>
+        <span className="font-bold truncate flex items-center gap-1">
+          <LogoSensite hauteur={28} classeTexte="text-base" sombre />
+          <span className="text-xs bg-orange-500 px-2 py-0.5 rounded-full">Admin</span>
         </span>
         <div className="flex gap-3 items-center shrink-0">
           <Link href="/admin/boutique/nouvelle" className="btn-primary text-xs py-1.5">

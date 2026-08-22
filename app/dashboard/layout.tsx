@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getSupabase } from "@/lib/supabase";
 import { useCommandesEnAttente } from "@/lib/use-commandes";
+import LogoSensite from "@/components/logo-sensite";
 
 interface Boutique {
   name: string;
@@ -63,7 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <aside className={`fixed inset-y-0 left-0 z-40 w-56 bg-white border-r border-gray-100 flex-col
         ${sidebarOpen ? "flex" : "hidden"} lg:flex`}>
         <div className="p-4 border-b border-gray-100">
-          <Link href="/" className="font-bold text-lg">SENsite<span className="text-orange-500">APP</span></Link>
+          <LogoSensite hauteur={32} classeTexte="text-lg" />
         </div>
 
         {/* Info boutique */}
@@ -138,7 +139,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Topbar mobile */}
         <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 h-14 flex items-center justify-between lg:hidden">
           <button onClick={() => setSidebarOpen(true)} className="text-2xl">☰</button>
-          <span className="font-bold text-sm">SENsite<span className="text-orange-500">APP</span></span>
+          <LogoSensite hauteur={28} classeTexte="text-sm" href={null} />
           <div className="w-8" />
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>

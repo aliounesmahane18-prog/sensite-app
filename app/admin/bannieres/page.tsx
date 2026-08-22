@@ -8,6 +8,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { ConfigError, ErrorBanner } from "@/components/config-error";
 import { getErrorMessage } from "@/lib/utils";
 import AdminTabs from "@/components/admin-tabs";
+import LogoSensite from "@/components/logo-sensite";
 
 const BUCKET = "boutique-banners";
 const FORMATS: Record<string, string> = {
@@ -290,9 +291,9 @@ export default function AdminBannieresPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-gray-900 text-white px-4 h-14 flex items-center justify-between sticky top-0 z-30 gap-3">
-        <span className="font-bold truncate">
-          SENsite<span className="text-orange-500">APP</span>
-          <span className="text-xs bg-orange-500 px-2 py-0.5 rounded-full ml-1">Admin</span>
+        <span className="font-bold truncate flex items-center gap-1">
+          <LogoSensite hauteur={28} classeTexte="text-base" sombre />
+          <span className="text-xs bg-orange-500 px-2 py-0.5 rounded-full">Admin</span>
         </span>
         <button
           onClick={async () => {

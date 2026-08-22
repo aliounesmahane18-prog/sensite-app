@@ -8,6 +8,7 @@ import { getSessionProfile, homeForRole } from "@/lib/session";
 import type { UserRole } from "@/types";
 import { ConfigError, ErrorBanner } from "@/components/config-error";
 import { getErrorMessage } from "@/lib/utils";
+import LogoSensite from "@/components/logo-sensite";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -113,9 +114,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-orange-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="text-2xl font-bold">
-            SENsite<span className="text-orange-500">APP</span>
-          </Link>
+          {/* 60px : le logo est le premier repère de la page de connexion. */}
+          <LogoSensite hauteur={60} classeTexte="text-2xl" />
           <p className="text-gray-500 mt-2">Connexion à ton espace boutique</p>
         </div>
 

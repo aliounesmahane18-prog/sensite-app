@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import LogoSensite from "@/components/logo-sensite";
 
 export interface OngletShell {
   cle: string;
@@ -54,9 +55,7 @@ export default function BoutiqueShell({
           ${tiroirOuvert ? "flex" : "hidden"} lg:flex`}
       >
         <div className="p-4 border-b border-gray-100">
-          <Link href="/" className="font-bold text-lg">
-            SENsite<span className="text-orange-500">APP</span>
-          </Link>
+          <LogoSensite hauteur={32} classeTexte="text-lg" />
         </div>
 
         <div className="p-3 border-b border-gray-100">

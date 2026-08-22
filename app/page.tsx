@@ -6,6 +6,7 @@ import FormulaireContact from "@/components/landing/formulaire-contact";
 import { getBannieres, getBoutiques, getProduitsVedettes } from "@/lib/landing";
 import { envServeur } from "@/lib/supabase-server";
 import { contactWhatsapp } from "@/lib/whatsapp";
+import LogoSensite from "@/components/logo-sensite";
 
 /**
  * Page d'accueil : le « centre commercial numérique ».
@@ -35,9 +36,8 @@ export default async function HomePage() {
       {/* ============ EN-TÊTE ============ */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-100 shadow-sm">
         <nav className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-          <Link href="/" className="font-bold text-xl shrink-0">
-            SENsite<span className="text-orange-500">APP</span>
-          </Link>
+          {/* Hauteur 40px demandée pour l'en-tête de la page d'accueil. */}
+          <LogoSensite hauteur={40} classeTexte="text-xl" className="shrink-0" />
 
           <div className="flex items-center gap-2 sm:gap-4">
             <a
@@ -104,9 +104,7 @@ export default async function HomePage() {
       <footer className="bg-gray-900 text-white py-10">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
           <div>
-            <p className="font-bold text-lg">
-              SENsite<span className="text-orange-500">APP</span>
-            </p>
+            <LogoSensite hauteur={40} classeTexte="text-lg" href={null} sombre />
             <p className="text-gray-400 text-sm mt-1">
               Toutes les boutiques de Dakar, à portée de WhatsApp.
             </p>
