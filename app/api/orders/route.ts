@@ -91,6 +91,9 @@ export async function POST(request: NextRequest) {
         items,
         total_amount: totalAmount,
         status: "new",
+        // Toute commande passant par cette route vient du catalogue public.
+        // La saisie du gérant écrit directement en base avec `manuelle`.
+        source: "whatsapp",
       })
       .select("id, order_number, total_amount")
       .single();

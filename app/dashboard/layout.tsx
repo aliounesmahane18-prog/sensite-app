@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getSupabase } from "@/lib/supabase";
+import { useCommandesEnAttente } from "@/lib/use-commandes";
 
 interface Boutique {
   name: string;
@@ -19,6 +20,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [loading, setLoading] = useState(true);
   const [boutique, setBoutique] = useState<Boutique | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [boutiqueId, setBoutiqueId] = useState<string | null>(null);
+  const commandesEnAttente = useCommandesEnAttente(boutiqueId);
 
   useEffect(() => {
     const check = async () => {
@@ -27,6 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const { data: p } = await getSupabase().from("profiles").select("role, boutique_id").eq("id", user.id).single();
       if (p?.role === "super_admin") { router.push("/admin"); return; }
       if (p?.boutique_id) {
+        setBoutiqueId(p.boutique_id);
         const { data: b } = await getSupabase().from("boutiques").select("name, slug, subscription_status, logo_url, color_primary").eq("id", p.boutique_id).single();
         setBoutique(b);
       }
@@ -40,7 +44,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navItems = [
     { href: "/dashboard", label: "🏠 Tableau de bord" },
     { href: "/dashboard/produits", label: "📦 Mes produits" },
-    { href: "/dashboard/commandes", label: "🛒 Commandes" },
+    { href: "/dashboard/commandes", label: "🛒 Commandes", badge: commandesEnAttente },
     { href: "/dashboard/parametres", label: "⚙️ Paramètres" },
   ];
 
@@ -99,10 +103,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {navItems.map(item => (
             <Link key={item.href} href={item.href}
               onClick={() => setSidebarOpen(false)}
-              className={`block px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 pathname === item.href ? "bg-orange-50 text-orange-500" : "text-gray-600 hover:bg-gray-50"
               }`}>
-              {item.label}
+              <span>{item.label}</span>
+              {/* Pastille des commandes non traitées, mise à jour en direct. */}
+              {typeof item.badge === "number" && item.badge > 0 && (
+                <span className="relative flex items-center justify-center shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                </span>
+              )}
             </Link>
           ))}
         </nav>

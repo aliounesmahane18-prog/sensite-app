@@ -152,6 +152,28 @@ export default function CataloguePage() {
       `💰 *TOTAL: ${fmt(total)} FCFA*\n\n👤 ${orderForm.name}\n📞 ${orderForm.phone}` +
       `${orderForm.address ? `\n📍 ${orderForm.address}` : ""}\n─────────────────\nVia SENsite-APP`
     );
+    // Enregistrement de la commande AVANT l'ouverture de WhatsApp, mais sans
+    // l'attendre : `window.open` doit rester dans le même tour que le clic,
+    // sinon le navigateur bloque l'onglet. La requête part donc en premier et
+    // se termine en arrière-plan.
+    //
+    // La route recalcule les prix et le total depuis la base : ce qui est
+    // envoyé ici n'est qu'une liste d'identifiants et de quantités.
+    //
+    // Un échec d'enregistrement ne doit surtout pas empêcher la commande de
+    // partir sur WhatsApp — c'est elle qui fait vivre la boutique.
+    void fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug: boutique.slug,
+        customer_name: orderForm.name,
+        customer_phone: orderForm.phone,
+        customer_address: orderForm.address,
+        items: cart.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
+      }),
+    }).catch(() => undefined);
+
     const wa = boutique.whatsapp_number.replace(/\D/g, "");
     window.open(`https://wa.me/${wa}?text=${msg}`, "_blank");
     setCart([]); setCartOpen(false); setStep("cart");

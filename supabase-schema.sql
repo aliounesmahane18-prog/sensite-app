@@ -486,3 +486,40 @@ ALTER TABLE boutiques ADD CONSTRAINT boutiques_category_check
     'pret_a_porter','electromenager','bazar','quincaillerie','bijouterie',
     'restaurant','textile','digital','autre'
   ));
+
+-- ============================================
+-- COMMANDES : ORIGINE, STATUT PAYÉE, TEMPS RÉEL
+-- ============================================
+-- Tout se greffe sur `orders`, qui portait déjà les commandes, ses trois
+-- politiques RLS (gérant / prospecteur / super admin) et son trigger
+-- updated_at. Créer une seconde table « commandes » aurait scindé les
+-- commandes en deux : les anciennes d'un côté, les nouvelles de l'autre.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'whatsapp';
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_source_check;
+ALTER TABLE orders ADD CONSTRAINT orders_source_check
+  CHECK (source IN ('whatsapp','manuelle'));
+
+-- Le cycle s'arrêtait à « livrée ». Le gérant a besoin de savoir ce qui lui
+-- reste à encaisser : « paid » vient à la suite. Valeurs en anglais, comme
+-- les cinq déjà en place.
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
+ALTER TABLE orders ADD CONSTRAINT orders_status_check
+  CHECK (status IN ('new','confirmed','processing','delivered','paid','cancelled'));
+
+-- Une commande initiée depuis le catalogue part vers WhatsApp AVANT que le
+-- client se soit identifié : nom et téléphone sont inconnus à ce moment.
+ALTER TABLE orders ALTER COLUMN customer_name DROP NOT NULL;
+ALTER TABLE orders ALTER COLUMN customer_phone DROP NOT NULL;
+
+CREATE INDEX orders_boutique_date_idx ON orders (boutique_id, created_at DESC);
+
+-- Temps réel. REPLICA IDENTITY FULL est nécessaire pour que les événements
+-- UPDATE portent l'ancienne ligne, sans quoi le filtre par boutique_id ne
+-- s'applique pas de façon fiable côté client.
+ALTER TABLE orders REPLICA IDENTITY FULL;
+ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+
+-- Pas de politique d'INSERT publique sur orders : le catalogue passe par la
+-- route serveur /api/orders, qui recalcule les prix depuis la base. Une
+-- policy « anon INSERT WITH CHECK (true) » laisserait n'importe qui écrire
+-- des commandes arbitraires dans n'importe quelle boutique.
