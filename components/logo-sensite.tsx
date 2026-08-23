@@ -2,24 +2,17 @@ import Image from "next/image";
 import Link from "next/link";
 
 /**
- * Logo SENsite-APP — source unique.
+ * Logo SENsite-APP — source unique, utilisée aux dix emplacements de
+ * l'application.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * POUR PASSER AU LOGO IMAGE :
- *   1. déposer le fichier dans `public/logo-sensite-app.png` ;
- *   2. renseigner FICHIER_LOGO et RATIO_LOGO ci-dessous.
- * Rien d'autre à toucher : les huit emplacements de l'application passent
- * automatiquement du logo typographique au logo image.
- * ─────────────────────────────────────────────────────────────────────────
- *
- * Tant que FICHIER_LOGO vaut `null`, c'est la version typographique qui
- * s'affiche. Pointer `next/image` vers un fichier absent afficherait un
- * texte alternatif cassé sur toutes les pages — pire que le logo actuel.
+ * Le fichier est détouré depuis `public/logo-sensite-app.jpg` : le cadre
+ * décoratif de la capture d'origine a été retiré et le fond clair rendu
+ * transparent. L'original est conservé à côté.
  */
-const FICHIER_LOGO: string | null = null;
+const FICHIER_LOGO: string | null = "/logo-sensite-app.png";
 
-/** largeur ÷ hauteur du fichier, à mesurer une fois le logo déposé. */
-const RATIO_LOGO = 1;
+/** 569 ÷ 131 px, mesuré sur le fichier détouré. */
+const RATIO_LOGO = 4.344;
 
 interface Props {
   /** Hauteur d'affichage en pixels. Sert aussi à calculer la largeur. */
@@ -40,7 +33,7 @@ export default function LogoSensite({
   sombre = false,
   className = "",
 }: Props) {
-  const contenu = FICHIER_LOGO ? (
+  const image = FICHIER_LOGO && (
     <Image
       src={FICHIER_LOGO}
       alt="SENsite-APP"
@@ -48,12 +41,26 @@ export default function LogoSensite({
       // l'image (layout shift).
       width={Math.round(hauteur * RATIO_LOGO)}
       height={hauteur}
-      // Le logo a un fond clair : `contain` évite qu'il soit rogné si le
-      // conteneur ne respecte pas exactement son ratio.
       className="object-contain w-auto"
       style={{ height: hauteur }}
       priority
     />
+  );
+
+  const contenu = FICHIER_LOGO ? (
+    sombre ? (
+      /**
+       * Sur les barres foncées, le logo est posé sur une pastille claire.
+       *
+       * Ce n'est pas décoratif : le « site-App » est en bleu marine, mesuré
+       * à un contraste de 1,30 sur `bg-gray-900` — il faut 3,0 pour qu'un
+       * logo reste lisible. Sur fond clair il monte à 13,65. Le logo a été
+       * dessiné pour un fond clair, on le lui rend.
+       */
+      <span className="inline-flex items-center rounded-lg bg-white px-2 py-1">{image}</span>
+    ) : (
+      image
+    )
   ) : (
     <span className={`font-bold ${classeTexte} ${sombre ? "text-white" : ""}`}>
       SENsite<span className="text-orange-500">APP</span>
