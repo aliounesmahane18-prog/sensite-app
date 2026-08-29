@@ -79,25 +79,33 @@ export default function BoutiquesPartenaires({ boutiques }: Props) {
                   className="card p-4 flex flex-col gap-3 transition-shadow hover:shadow-lg"
                 >
                   <div className="flex items-start gap-3">
-                    {/* contain sur fond neutre : le logo n'est jamais rogné */}
-                    <div
-                      className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-100 shrink-0"
-                      style={{ background: "#f5f5f5" }}
+                    {/* Le logo mène au catalogue, comme le bouton plus bas :
+                        c'est l'élément que le visiteur regarde en premier. */}
+                    <Link
+                      href={`/boutique/${b.slug}`}
+                      aria-label={`Visiter ${b.name}`}
+                      className="shrink-0 transition-transform duration-200 hover:scale-105"
                     >
-                      {b.logo_url ? (
-                        <Image
-                          src={b.logo_url}
-                          alt={b.name}
-                          fill
-                          sizes="64px"
-                          className="object-contain"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
-                          {b.name.slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
+                      {/* contain sur fond neutre : le logo n'est jamais rogné */}
+                      <span
+                        className="relative block w-16 h-16 rounded-xl overflow-hidden border border-gray-100"
+                        style={{ background: "#f5f5f5" }}
+                      >
+                        {b.logo_url ? (
+                          <Image
+                            src={b.logo_url}
+                            alt={b.name}
+                            fill
+                            sizes="64px"
+                            className="object-contain"
+                          />
+                        ) : (
+                          <span className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                            {b.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </span>
+                    </Link>
                     {b.is_featured && (
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 ml-auto shrink-0">
                         ⭐ Vedette
@@ -125,7 +133,7 @@ export default function BoutiquesPartenaires({ boutiques }: Props) {
                     href={`/boutique/${b.slug}`}
                     className="btn-secondary text-sm text-center w-full"
                   >
-                    Voir la boutique
+                    Visiter la Boutique
                   </Link>
                 </div>
               ))}
