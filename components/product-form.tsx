@@ -66,10 +66,28 @@ export default function ProductForm({ boutiqueId, userId, product, onSuccess }: 
   };
 
   const uploadImage = async (): Promise<string | null> => {
-    if (!imageUpload.croppedBlob) return imageUpload.preview;
+    if (!imageUpload.croppedBlob) {
+      // Un aperçu `blob:` n'existe que dans l'onglet qui l'a créé : l'enregistrer
+      // en base produirait une image définitivement cassée.
+      const apercu = imageUpload.preview;
+      return apercu && apercu.startsWith("blob:") ? null : apercu;
+    }
+
     const supabase = getSupabase();
     const path = `${boutiqueId}/${Date.now()}.jpg`;
-    await supabase.storage.from("product-images").upload(path, imageUpload.croppedBlob, { contentType: "image/jpeg" });
+
+    // `upload()` ne lève pas d'exception : il renvoie `{ error }`. Sans ce
+    // contrôle, un envoi refusé (droits, réseau, quota) passait inaperçu et
+    // `getPublicUrl` fabriquait quand même une URL — vers un fichier qui
+    // n'existe pas. Le produit était alors enregistré avec une image morte,
+    // sans le moindre message pour le vendeur.
+    const { error: uploadError } = await supabase.storage
+      .from("product-images")
+      .upload(path, imageUpload.croppedBlob, { contentType: "image/jpeg" });
+    if (uploadError) {
+      throw new Error(`Envoi de la photo impossible : ${uploadError.message}`);
+    }
+
     const { data } = supabase.storage.from("product-images").getPublicUrl(path);
     return data.publicUrl;
   };

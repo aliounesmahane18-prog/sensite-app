@@ -5,6 +5,7 @@ import { getSupabase } from "@/lib/supabase";
 import { getSessionProfile } from "@/lib/session";
 import { ErrorBanner } from "@/components/config-error";
 import { formatFcfa, getErrorMessage } from "@/lib/utils";
+import ImageProduit from "@/components/image-produit";
 
 interface Product {
   id: string;
@@ -111,13 +112,10 @@ export default function ProduitsPage() {
             <div key={p.id} className={`card overflow-hidden ${p.is_available ? "" : "opacity-60"}`}>
               {/* Même cadrage que le catalogue public : le vendeur voit
                   exactement la photo que verra son client. */}
-              <div className="h-40 flex items-center justify-center" style={{ background: "#f5f5f5" }}>
-                {p.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.image_url} alt={p.name} className="w-full h-full object-contain" />
-                ) : (
-                  <span className="text-4xl">📦</span>
-                )}
+              <div className="relative h-40 overflow-hidden" style={{ background: "#f5f5f5" }}>
+                <ImageProduit src={p.image_url} alt={p.name} fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="object-contain" />
               </div>
               <div className="p-3">
                 <p className="font-semibold text-gray-900 truncate">{p.name}</p>

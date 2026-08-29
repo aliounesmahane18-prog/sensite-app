@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
 import { CATEGORY_ICONS } from "@/lib/themes";
+import ImageProduit from "@/components/image-produit";
 
 interface Boutique {
   id: string; name: string; slug: string; whatsapp_number: string;
@@ -364,13 +365,9 @@ export default function CataloguePage() {
                     affichée en entier, jamais coupée en haut ni en bas. */}
                 <div className="relative w-full h-48 overflow-hidden rounded-t-2xl"
                   style={{ background: "#f5f5f5" }}>
-                  {p.image_url ? (
-                    <Image src={p.image_url} alt={p.name} fill
-                      sizes="(max-width: 768px) 50vw, 33vw"
-                      className="object-contain object-center" />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-4xl text-gray-300">📦</div>
-                  )}
+                  <ImageProduit src={p.image_url} alt={p.name} fill
+                    sizes="(max-width: 768px) 50vw, 33vw"
+                    className="object-contain object-center" />
                   {p.is_featured && (
                     <span className="absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full"
                       style={{ background: accent, color: secondary }}>⭐ Vedette</span>
@@ -441,7 +438,7 @@ export default function CataloguePage() {
               {selectedProduct.image_url && (
                 <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0"
                   style={{ background: "#f5f5f5" }}>
-                  <Image src={selectedProduct.image_url} alt={selectedProduct.name} fill sizes="64px" className="object-contain object-center" />
+                  <ImageProduit src={selectedProduct.image_url} alt={selectedProduct.name} fill sizes="64px" className="object-contain object-center" tailleIcone="text-2xl" />
                 </div>
               )}
               <div>
@@ -497,9 +494,7 @@ export default function CataloguePage() {
                     {cart.map((item, idx) => (
                       <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: `${primary}08` }}>
                         <div className="w-14 h-14 bg-gray-100 rounded-xl overflow-hidden shrink-0">
-                          {item.product.image_url
-                            ? <Image src={item.product.image_url} alt={item.product.name} width={56} height={56} className="w-full h-full object-contain" />
-                            : <div className="flex items-center justify-center h-full text-2xl">📦</div>}
+                          <ImageProduit src={item.product.image_url} alt={item.product.name} width={56} height={56} className="w-full h-full object-contain" tailleIcone="text-2xl" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold truncate">{item.product.name}</p>
