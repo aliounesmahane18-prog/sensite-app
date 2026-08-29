@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { ShoppingCart } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import { CATEGORY_ICONS } from "@/lib/themes";
 import ImageProduit from "@/components/image-produit";
@@ -249,19 +250,24 @@ export default function CataloguePage() {
       <header style={{ background: primary }}>
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {boutique.logo_url ? (
-              // `contain` sur fond neutre : un logo n'est jamais rogné, et la
-              // transparence ne laisse pas voir la couleur du header.
-              <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-white/30 shrink-0"
-                style={{ background: "#f5f5f5" }}>
-                <Image src={boutique.logo_url} alt={boutique.name} fill sizes="64px"
-                  className="object-contain" />
-              </div>
-            ) : (
-              <div className="w-16 h-16 rounded-2xl bg-white/20 border-2 border-white/30 flex items-center justify-center font-bold text-white text-lg shrink-0">
-                {boutique.name.slice(0, 2).toUpperCase()}
-              </div>
-            )}
+            {/* Le logo ramène à la liste des boutiques : c'est le geste
+                attendu, et il double le lien « ← Accueil » au-dessus. */}
+            <Link href="/#boutiques" aria-label="Retour aux boutiques"
+              className="shrink-0 transition-transform hover:scale-105">
+              {boutique.logo_url ? (
+                // `contain` sur fond neutre : un logo n'est jamais rogné, et la
+                // transparence ne laisse pas voir la couleur du header.
+                <span className="relative block w-16 h-16 rounded-2xl overflow-hidden border-2 border-white/30"
+                  style={{ background: "#f5f5f5" }}>
+                  <Image src={boutique.logo_url} alt={boutique.name} fill sizes="64px"
+                    className="object-contain" />
+                </span>
+              ) : (
+                <span className="block w-16 h-16 rounded-2xl bg-white/20 border-2 border-white/30 flex items-center justify-center font-bold text-white text-lg">
+                  {boutique.name.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+            </Link>
             <div>
               <h1 className="font-bold text-lg text-white leading-tight">{boutique.name}</h1>
               {boutique.quartier && <p className="text-xs text-white/80">📍 {boutique.quartier}</p>}
@@ -377,17 +383,27 @@ export default function CataloguePage() {
                       style={{ color: primary }}>Options</span>
                   )}
                 </div>
-                <div className="p-3">
-                  <p className="font-semibold text-sm text-gray-900 line-clamp-2 mb-2">{p.name}</p>
-                  <div className="flex items-end justify-between">
-                    <div>
-                      <p className="font-bold text-sm" style={{ color: primary }}>{fmt(p.price)} FCFA</p>
-                      {p.old_price && <p className="text-xs text-gray-400 line-through">{fmt(p.old_price)} FCFA</p>}
-                    </div>
-                    <button onClick={() => openProductModal(p)}
-                      className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-lg active:scale-90 transition-all"
-                      style={{ background: primary }}>+</button>
+                <div className="p-3 space-y-2">
+                  <p className="font-semibold text-sm text-gray-900 line-clamp-2">{p.name}</p>
+                  <div>
+                    <p className="font-bold text-sm" style={{ color: primary }}>{fmt(p.price)} FCFA</p>
+                    {p.old_price && <p className="text-xs text-gray-400 line-through">{fmt(p.old_price)} FCFA</p>}
                   </div>
+                  {/* Le « + » seul n'expliquait pas ce qu'il faisait. Bouton
+                      pleine largeur, 44px de haut : c'est la taille de cible
+                      tactile recommandée, et le catalogue se consulte au pouce. */}
+                  {/* `text-xs` sur mobile : la grille est à deux colonnes,
+                      une carte fait ~177px et le libellé complet était coupé
+                      en 14px. Pas de `truncate` — le texte passe à la ligne
+                      plutôt que d'être amputé, le bouton grandit. */}
+                  <button
+                    onClick={() => openProductModal(p)}
+                    className="w-full min-h-[44px] rounded-xl flex items-center justify-center gap-1.5 text-white text-xs sm:text-sm font-semibold px-2 py-2 leading-tight active:scale-95 transition-all"
+                    style={{ background: primary }}
+                  >
+                    <ShoppingCart className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    Ajouter au panier
+                  </button>
                 </div>
               </div>
             ))}
